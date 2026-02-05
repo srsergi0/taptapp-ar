@@ -75,8 +75,10 @@ ANTES de redactar, genera un OUTLINE detallado que garantice rigor científico:
   3. **Visualizer:** Generar la imagen
   4. **Critic:** Evaluar y refinar (3 iteraciones)
 - Al momento que generas la imagen quiero un estilo visual OUTLINE ULTRA DETALLADO. Las figuras deben ser de calidad editorial.
-- Si existe un error en la imagen, vuelve a generarla siguiendo las reglas de refinamiento del Critic Agent.
-- A medida que se generen y se coloquen en su carpeta, añade la etiqueta `[GENERATED]` al prompt correspondiente en dicho archivo.
+- **Gestión Persistente de Imágenes (OBLIGATORIO):**
+  - **Copia Inmediata:** Segun vas generando, copia CADA imagen en la carpeta `project/figures/`.
+  - **Versionado Numérico:** Si una imagen es una alternativa o no se va a usar como principal, nómbrala con un sufijo: `imagen.png`, `imagen(1).png`, `imagen(2).png`.
+  - **Etiqueta de Estado:** A medida que se generen y se coloquen en su carpeta, añade la etiqueta `[GENERATED]` al prompt correspondiente en dicho archivo.
 --------------------------------
 ESTRUCTURA OBLIGATORIA POR FIGURA
 --------------------------------

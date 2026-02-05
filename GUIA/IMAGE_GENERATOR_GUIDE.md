@@ -20,6 +20,7 @@
 11. [Criterios de Evaluación](#11-criterios-de-evaluación)
 12. [Plantillas de Prompts](#12-plantillas-de-prompts)
 13. [Flujo de Mejora de Diagramas Existentes](#13-flujo-de-mejora-de-diagramas-existentes-enhancement-flow)
+14. [Gestión de Archivos de Imagen Generados](#14-gestión-de-archivos-de-imagen-generados)
 
 ---
 
@@ -925,6 +926,31 @@ Imagen refinada con las mejoras aplicadas.
 - Se necesita un rediseño completo
 - No existe diagrama previo
 - El contenido del diagrama está desactualizado
+
+---
+
+## 14. GESTIÓN DE ARCHIVOS DE IMAGEN GENERADOS
+
+> **⚠️ REGLA DE ORO:** Ninguna imagen generada debe perderse. Todas deben ser persistidas en la estructura del proyecto.
+
+### 14.1 Persistencia Inmediata
+Tan pronto como una imagen sea generada por el `Visualizer Agent` o refinada por el `Refinement Agent`:
+- **DEBE** copiarse inmediatamente a la carpeta del proyecto definida en la guía (`project/figures/` o similar).
+- No se debe esperar al final del proceso para mover los archivos.
+
+### 14.2 Versionado y Nomenclatura
+Para evitar sobreescrituras accidentales y mantener un historial de variaciones:
+1. **Imagen Principal:** El nombre definido en el prompt (ej: `architecture.png`).
+2. **Variaciones/Alternativas:** Si se genera una nueva versión pero no se va a usar como principal inmediatamente (o si se quiere conservar la anterior), se debe añadir un sufijo numérico:
+   - `architecture.png` (Principal/Actual)
+   - `architecture(1).png` (Variación 1)
+   - `architecture(2).png` (Variación 2)
+   - ...etc.
+
+### 14.3 Sincronización con LaTeX
+Cuando una nueva versión sea seleccionada como la "definitiva" para el paper:
+- Se debe renombrar a la versión principal referenciada en el código LaTeX.
+- Las versiones anteriores deben conservarse con su sufijo numérico en la misma carpeta para consulta o recuperación.
 
 ---
 
