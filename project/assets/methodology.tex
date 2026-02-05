@@ -20,11 +20,35 @@ The methodological procedure for the development and validation of the system fo
 \subsubsection{Step A: Architecture Design}
 The initial phase involved designing the zero-dependency pipeline. The memory management system was architected to map binary buffers directly to TypedArrays, ensuring zero-copy data restoration.
 
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\columnwidth]{figures/fig1_architecture.png}}
+\caption{System Architecture of TapTapp AR V11, demonstrating the pure JavaScript pipeline and the integration of the Nanite Vision Codec.}
+\label{fig1}
+\end{figure}
+
 \subsubsection{Step B: Implementation of the Vision Codec}
 The feature extraction algorithms were implemented to output 4-bit packed tracking data and 64-bit LSH fingerprints. This step focused on maximizing the information density per byte of the output file.
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\columnwidth]{figures/fig2_feature_stack.png}}
+\caption{Nanite Feature Extraction Pipeline, illustrating the multi-octave stratification and dynamic scale filtering mechanism.}
+\label{fig2}
+\end{figure}
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\columnwidth]{figures/fig3_matching_engine.png}}
+\caption{Binary Matching Engine Logic, detailing the XOR and PopCount operations used for high-speed descriptor matching.}
+\label{fig3}
+\end{figure}
 
 \subsubsection{Step C: Integration of the JIT Compiler}
 A Just-In-Time (JIT) compilation module was developed to process images directly in the browser. This module handles the conversion of standard images into the proprietary \texttt{.taar} format on the fly.
 
 \subsubsection{Step D: Comparative Benchmarking}
 The final phase involved the systematic collection of performance data. A simulated environment was set up to run 45 iterations of compilation and tracking for both the control and experimental groups. Metrics such as compilation time (in seconds), output file size (in KB), and detection stability were recorded for statistical analysis.
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\columnwidth]{figures/fig4_experiment_setup.png}}
+\caption{Experimental Setup Comparison: MindAR (Control) vs. TapTapp AR (Experimental), highlighting the hardware and metric collection focus.}
+\label{fig4}
+\end{figure}
