@@ -30,6 +30,7 @@ The following structure must be created exactly:
  │    ├── discussion.tex
  │    ├── conclusions.tex
  ├── references.bib
+ ├── imagenes-generadas.md
 ```
 
 ## 3. Scientific Outline (Pre-requisite)
@@ -46,7 +47,7 @@ Before generating content, define:
 
 > **⚠️ MANDATORY:** Follow `./IMAGE_GENERATOR_GUIDE.md` for complete image generation guidelines (PaperBanana SOTA Framework).
 
-- [ ] Create ALWAYS a file `imagenes-generadas.md` containing all prompts of the figures to be generated.
+- [ ] Create ALWAYS a file `project/imagenes-generadas.md` containing all COMPLETE prompts of the figures to be generated.
 - [ ] **Follow 4-Phase Pipeline** (from IMAGE_GENERATOR_GUIDE.md):
   - [ ] **Phase 1 (Planner):** Generate ultra-detailed textual description
   - [ ] **Phase 2 (Stylist):** Apply NeurIPS 2025 style guidelines

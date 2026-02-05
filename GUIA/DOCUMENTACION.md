@@ -45,7 +45,9 @@ Genera EXACTAMENTE la siguiente estructura:
  │    ├── results.tex
  │    ├── discussion.tex
  │    ├── conclusions.tex
+ │    ├── conclusions.tex
  ├── references.bib
+ ├── imagenes-generadas.md
 
 =================================================
 3. PASO 1 – OUTLINE GENERAL Y CIENTÍFICO (OBLIGATORIO)
@@ -66,7 +68,7 @@ ANTES de redactar, genera un OUTLINE detallado que garantice rigor científico:
 > **⚠️ IMPORTANTE:** Para la generación de imágenes académicas, consultar obligatoriamente:
 > `./IMAGE_GENERATOR_GUIDE.md` - Guía completa basada en PaperBanana Framework (SOTA)
 
-- Crea SIEMPRE un archivo `imagenes-generadas.md` que incluya todos los prompts de las imágenes a generar.
+- Crea SIEMPRE un archivo `project/imagenes-generadas.md` que incluya todos los prompts COMPLETOS de las imágenes a generar.
 - **Seguir el pipeline de 4 fases** descrito en IMAGE_GENERATOR_GUIDE.md:
   1. **Planner:** Generar descripción ultra-detallada del diagrama
   2. **Stylist:** Aplicar guías de estilo NeurIPS 2025
