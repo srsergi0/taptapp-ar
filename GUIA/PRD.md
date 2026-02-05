@@ -61,10 +61,11 @@ Before generating content, define:
 - [ ] **Attributes**:
   - Must be "Methodological" and "Sequential".
   - Source must be cited as "Elaboración propia" (Own elaboration).
-- [ ] **Persistent Image Management** (MANDATORY):
-  - [ ] **Immediate Copy:** As soon as an image is generated, copy it to `project/figures/`.
-  - [ ] **Variation Naming:** Use numbered suffixes for alternatives or non-optimal versions: `image.png`, `image(1).png`, `image(2).png`.
-  - [ ] **Add Tag:** Add `[GENERATED]` to the corresponding prompt once the image is successfully created and placed.
+- [ ] **Persistent & Sequential Image Management** (MANDATORY):
+  - [ ] **Sequential Execution:** Generate figures ONE BY ONE. Do NOT parallelize.
+  - [ ] **Per-Figure Review:** After generating and copying to `project/figures/`, decide if it's final or if a new iteration is needed before moving to the next figure.
+  - [ ] **Variation Naming:** Use numbered suffixes for alternatives: `image.png`, `image(1).png`.
+  - [ ] **Add Tag:** Add `[GENERATED]` to the prompt ONLY when the figure is satisfied.
 - [ ] **Detailed Description Per Figure** (use Prompt Templates from IMAGE_GENERATOR_GUIDE.md Section 12):
   - Layout structure (flow, layers).
   - Main blocks and detailed components.

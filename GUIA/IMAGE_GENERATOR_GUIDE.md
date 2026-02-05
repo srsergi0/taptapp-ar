@@ -933,15 +933,20 @@ Imagen refinada con las mejoras aplicadas.
 
 > **⚠️ REGLA DE ORO:** Ninguna imagen generada debe perderse. Todas deben ser persistidas en la estructura del proyecto.
 
-### 14.1 Persistencia e Integración
-Tan pronto como una imagen sea generada o refinada:
-- **DEBE** copiarse inmediatamente a `project/figures/`.
-- **VALIDACIÓN OBLIGATORIA:** Antes de realizar "commit" o "push", el proyecto DEBE compilarse localmente para asegurar que las nuevas imágenes no rompen el documento.
-  - Ejecutar: `qtex .\project\ --verify` (Validación de estructura y figuras)
-  - Ejecutar: `qtex .\project\` (Compilación a PDF)
-- **SI QTEX FALLA:** El cambio NO se guarda en Git. Se deben corregir las referencias en LaTeX antes de persistir.
+### 14.1 Ejecución Secuencial y Decisión (LOOP)
+> **ERROR A EVITAR:** NO generes múltiples imágenes en paralelo.
+
+Cada figura debe seguir un proceso estrictamente secuencial:
+1. **Generación:** Se ejecuta el pipeline (Planner -> Stylist -> Visualizer) para UNA sola figura.
+2. **Persistencia Inmediata:** La imagen se copia inmediatamente a `project/figures/`.
+3. **Revisión Visual:** El agente (tú) debe observar el resultado en `project/figures/`.
+4. **Decisión Iterativa:** 
+   - Si la imagen es óptima: Se marca como `[GENERATED]` y se procede a la siguiente figura.
+   - Si requiere mejoras: Se ejecuta el `Critic Agent` y se genera una nueva versión (ej: `figura(1).png`) **antes** de pasar a la siguiente figura del outline.
+   - **Evaluación Final:** Solo cuando la figura actual es satisfactoria, se avanza a la siguiente.
 
 ### 14.2 Versionado y Nomenclatura
+...
 Para evitar sobreescrituras accidentales y mantener un historial de variaciones:
 1. **Imagen Principal:** El nombre definido en el prompt (ej: `architecture.png`).
 2. **Variaciones/Alternativas:** Si se genera una nueva versión pero no se va a usar como principal inmediatamente (o si se quiere conservar la anterior), se debe añadir un sufijo numérico:

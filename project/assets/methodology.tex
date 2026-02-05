@@ -10,8 +10,8 @@ Key components of the architecture include:
 \begin{enumerate}
     \item \textbf{Dynamic Scale Filtering:} The tracking engine estimates the target's scale and filters the search space, reducing Hamming distance operations by up to 90\%.
     \item \textbf{Non-Rigid Surface Tracking:} A dynamic Delaunay Mesh replaces rigid homography, allowing for tracking on curved surfaces.
-    \item \textbf{Fourier Positional Encoding:} 2D coordinates are mapped into a 16-dimensional frequency space to filter noise and motion blur.
-    \item \textbf{Binary Matching Engine:} Utilizes bitwise operations (XOR and population count) for rapid descriptor matching.
+    \item \textbf{Fourier Positional Encoding:} 2D coordinates are mapped into a 16-dimensional frequency space to filter noise and motion blur \cite{garcia2025fourier}.
+    \item \textbf{Binary Matching Engine:} Utilizes bitwise operations (XOR and population count) for rapid descriptor matching \cite{wu2023binary}.
 \end{enumerate}
 
 \subsection{Sequential Procedure}

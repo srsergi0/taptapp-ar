@@ -75,10 +75,10 @@ ANTES de redactar, genera un OUTLINE detallado que garantice rigor científico:
   3. **Visualizer:** Generar la imagen
   4. **Critic:** Evaluar y refinar (3 iteraciones)
 - Al momento que generas la imagen quiero un estilo visual OUTLINE ULTRA DETALLADO. Las figuras deben ser de calidad editorial.
-- **Gestión Persistente de Imágenes (OBLIGATORIO):**
-  - **Copia Inmediata:** Segun vas generando, copia CADA imagen en la carpeta `project/figures/`.
-  - **Versionado Numérico:** Si una imagen es una alternativa o no se va a usar como principal, nómbrala con un sufijo: `imagen.png`, `imagen(1).png`, `imagen(2).png`.
-  - **Etiqueta de Estado:** A medida que se generen y se coloquen en su carpeta, añade la etiqueta `[GENERATED]` al prompt correspondiente en dicho archivo.
+- **Gestión Persistente y Secuencial (OBLIGATORIO):**
+  - **Generación Uno a Uno:** Genera las imágenes de forma SECUENCIAL, no en paralelo.
+  - **Bucle de Decisión:** Segun vas generando, copia a `project/figures/`, visualiza el resultado y DECIDE si generas una versión más (`imagen(1).png`) o si pasas a la siguiente.
+  - **Etiqueta de Éxito:** Solo añade `[GENERATED]` cuando la figura sea satisfactoria y esté guardada.
 --------------------------------
 ESTRUCTURA OBLIGATORIA POR FIGURA
 --------------------------------
@@ -205,8 +205,14 @@ references.bib
  -Colocar que es elaboración propia
 
 =================================================
-7. INSTRUCCIONES FINALES
+7. INSTRUCCIONES FINALES (ESTRICTA INTEGRIDAD)
 =================================================
-- Asume el flujo de trabajo: `qtex .\project\ --verify` -> `qtex .\project\`.
-- Prioriza la densidad de contenido y la calidad técnica sobre la longitud vacía.
+- **REGLA DE ORO:** NO guardes en Git ni reportes como finalizado nada que no pase el test de `qtex`.
+- **PASOS DE VALIDACIÓN OBLIGATORIA:**
+  1. `qtex .\project\ --verify` (Verifica estructura, referencias y figuras).
+  2. `qtex .\project\` (Compilación final a PDF).
+- **CONOCIMIENTO CLAVE (qtex):** 
+  - Errores como `Something's wrong--perhaps a missing \item` suelen indicar una bibliografía vacía. Asegúrate de usar siempre `\cite{...}` en el texto.
+  - Si `qtex` falla, el cambio NO se guarda. Analiza los logs, corrige los archivos `.tex` o `.bib` y repite la validación.
+- Solo cuando el compilador indique éxito (`✔ PDF generated`) se permite realizar el `commit` y `push`.
 - ¡Importante! Al final, tienen que hacer un commit y un push de los cambios de esta carpeta.
