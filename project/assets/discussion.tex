@@ -1,0 +1,9 @@
+\section{Discussion}
+
+The results of this study fundamentally challenge the assumption that heavy machine learning frameworks are necessary for high-fidelity web-based Augmented Reality. The 13.9x acceleration in compilation speed observed in TapTapp AR V11 aligns with the theoretical advantages of domain-specific optimization over general-purpose tensor libraries.
+
+Our findings mimic the shift seen in native game engine development, where virtualized geometry (e.g., UE5's Nanite) has replaced static LODs. In the context of computer vision, the "Nanite-style" stratification of feature octaves allows for $O(1)$ access to the relevant tracking data based on the estimated distance, rather than the $O(n)$ search required by traditional pyramid-based approaches like those found in MindAR [4] and AR.js [7].
+
+The 86\% reduction in file size is particularly significant for the Peruvian context and other developing regions where mobile data bandwidth is a constraint. A payload of ~100KB ensures that AR experiences are accessible even on 3G networks, removing a critical barrier to entry.
+
+However, it is worth noting that while the pure JavaScript pipeline excels in performance, it lacks the flexibility of deep learning models for semantic understanding (e.g., recognizing "a cup" vs. "this specific cup"). Future work will explore hybrid approaches that leverage WebGL compute shaders to introduce semantic capabilities without reintroducing the heavy overhead of full TensorFlow.js execution.

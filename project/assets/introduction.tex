@@ -1,0 +1,11 @@
+\section{Introduction}
+
+\IEEEPARstart{T}{he} global demand for immersive web experiences has surged in recent years, driven by the accessibility of mobile browsers and the evolution of WebGL standards. Internationally, industries ranging from e-commerce to education are integrating Augmented Reality (AR) to enhance user engagement. In the context of Peru, however, the adoption of these technologies faces a specific challenge: the prevalence of mid-range and low-end mobile devices with limited processing power and unstable network connections. This digital gap necessitates highly optimized solutions that do not rely on high-bandwidth downloads or heavy client-side computation.
+
+Current state-of-the-art WebAR solutions predominantly rely on general-purpose machine learning libraries, such as TensorFlow.js. While robust, these libraries introduce a significant "cold start" latency due to the need to download megabytes of model weights and compile shaders before any tracking can occur. This dependency creates a bottleneck that degrades user retention and limits scalability. There exists a clear research gap in the development of lightweight, domain-specific computer vision pipelines that can operate efficiently in a pure JavaScript environment without external heavy dependencies.
+
+To address this issue, this research proposes a novel architectural approach based on "Nanite-style" virtualized vision codecs. This technology optimizes feature extraction and matching through multi-octave stratification and dynamic scale filtering, significantly reducing both data transfer and CPU usage.
+
+The technological justification for this study lies in the potential to democratize high-fidelity AR experiences. By shifting from brute-force matrix operations to optimized binary matching engines, we aim to prove that web-based AR can achieve native-like performance.
+
+The general objective of this research is to design and evaluate a high-performance web virtualization framework for Augmented Reality that minimizes compilation time and payload size while maintaining robust tracking stability, specifically tailored for resource-constrained web environments.
