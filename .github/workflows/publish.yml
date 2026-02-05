@@ -1,4 +1,4 @@
-name: Publish to NPM
+name: Publish Locus AR to NPM
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
       - 'src/**'
       - 'scripts/**'
       - 'package.json'
+      - 'README.md'
       - 'package-lock.json'
       - 'tsconfig.json'
       - 'vite.config.js'

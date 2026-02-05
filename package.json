@@ -1,37 +1,40 @@
 {
-    "name": "@srsergio/taptapp-ar",
-    "version": "1.1.17",
-    "description": "Ultra-fast Augmented Reality (AR) SDK for Node.js and Browser. Image tracking with 100% pure JavaScript, zero-dependencies, and high-performance compilation.",
+    "name": "locus-ar",
+    "version": "1.1.23",
+    "description": "High-performance Augmented Reality (AR) engine for React and the Web. 100% Pure JavaScript image tracking, zero-dependencies, bio-inspired foveal attention, and Nanite-style feature extraction.",
     "keywords": [
         "augmented reality",
         "ar",
+        "locus",
+        "react-ar",
         "image tracking",
         "computer vision",
         "webar",
-        "a-frame",
-        "three.js",
-        "ar.js",
-        "mindar",
-        "tracking",
-        "opencv",
         "javascript",
         "webgl",
-        "cross-platform",
-        "no-wasm",
         "no-tfjs",
-        "webxr",
-        "natural-feature-tracking"
+        "nft",
+        "natural-feature-tracking",
+        "three.js",
+        "a-frame",
+        "opencv",
+        "slam",
+        "ar-js",
+        "mind-ar",
+        "tracking",
+        "foveal-attention",
+        "nanite"
     ],
     "author": "Sergio Lázaro <sergio@taptapp.xyz>",
-    "license": "Fair Source-0.9",
+    "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/srsergiolazaro/taptapp-ar.git"
+        "url": "git+https://github.com/srsergiolazaro/locus-ar.git"
     },
     "bugs": {
-        "url": "https://github.com/srsergiolazaro/taptapp-ar/issues"
+        "url": "https://github.com/srsergiolazaro/locus-ar/issues"
     },
-    "homepage": "https://srsergiolazaro.github.io/taptapp-ar/",
+    "homepage": "https://srsergiolazaro.github.io/locus-ar/",
     "type": "module",
     "main": "./dist/index.js",
     "module": "./dist/index.js",
@@ -40,6 +43,10 @@
         ".": {
             "types": "./dist/index.d.ts",
             "import": "./dist/index.js"
+        },
+        "./client": {
+            "types": "./dist/client/index.d.ts",
+            "import": "./dist/client/index.js"
         },
         "./compiler": {
             "types": "./dist/compiler/offline-compiler.d.ts",
@@ -52,9 +59,8 @@
         "LICENSE"
     ],
     "scripts": {
-        "build": "tsc && node scripts/minify-dist.mjs",
+        "build": "node scripts/build.mjs",
         "build:dev": "tsc",
-        "minify": "node scripts/minify-dist.mjs",
         "prepublishOnly": "npm run build",
         "test": "vitest",
         "test:react": "vite --port 4321 --open tests/reliability-test.html",
