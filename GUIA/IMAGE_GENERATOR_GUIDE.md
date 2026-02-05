@@ -933,10 +933,13 @@ Imagen refinada con las mejoras aplicadas.
 
 > **⚠️ REGLA DE ORO:** Ninguna imagen generada debe perderse. Todas deben ser persistidas en la estructura del proyecto.
 
-### 14.1 Persistencia Inmediata
-Tan pronto como una imagen sea generada por el `Visualizer Agent` o refinada por el `Refinement Agent`:
-- **DEBE** copiarse inmediatamente a la carpeta del proyecto definida en la guía (`project/figures/` o similar).
-- No se debe esperar al final del proceso para mover los archivos.
+### 14.1 Persistencia e Integración
+Tan pronto como una imagen sea generada o refinada:
+- **DEBE** copiarse inmediatamente a `project/figures/`.
+- **VALIDACIÓN OBLIGATORIA:** Antes de realizar "commit" o "push", el proyecto DEBE compilarse localmente para asegurar que las nuevas imágenes no rompen el documento.
+  - Ejecutar: `qtex .\project\ --verify` (Validación de estructura y figuras)
+  - Ejecutar: `qtex .\project\` (Compilación a PDF)
+- **SI QTEX FALLA:** El cambio NO se guarda en Git. Se deben corregir las referencias en LaTeX antes de persistir.
 
 ### 14.2 Versionado y Nomenclatura
 Para evitar sobreescrituras accidentales y mantener un historial de variaciones:

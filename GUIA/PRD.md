@@ -131,5 +131,9 @@ Before generating content, define:
 - [ ] **Tense**: Past for Method/Results; Present for Intro/Discussion.
 - [ ] **Vocabulary**: Formal academic (avoid "very", "good"; use "significant", "optimal").
 
-## 7. Submission Tasks
-- [ ] **Verification**: Run `qtex .\project\ --verify` followed by `qtex .\project\`.
+## 7. Submission Tasks (Strict Integrity)
+- [ ] **Validation Protocol (MANDATORY)**:
+  - Run `qtex .\project\ --verify` (Verify structure/assets).
+  - Run `qtex .\project\` (Compile to PDF).
+- [ ] **Git Rule**: ONLY if both commands yield `✔ success`, perform `git commit` and `git push`.
+- [ ] **Correction Loop**: If `qtex` fails, analyze logs, fix LaTeX/BibTeX errors, and repeat validation.
