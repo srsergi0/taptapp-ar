@@ -66,6 +66,8 @@ export function columnarize(points: any[], tree: any, width: number, height: num
     const y = new Uint16Array(count);
     const angle = new Int16Array(count);
     const scale = new Uint8Array(count);
+    const sx = new Float32Array(count);
+    const sy = new Float32Array(count);
 
     let descriptors: any;
     if (useHDC) {
@@ -79,6 +81,8 @@ export function columnarize(points: any[], tree: any, width: number, height: num
         y[i] = Math.round((points[i].y / height) * 65535);
         angle[i] = Math.round((points[i].angle / Math.PI) * 32767);
         scale[i] = Math.round(Math.log2(points[i].scale || 1));
+        sx[i] = points[i].sx || 0;
+        sy[i] = points[i].sy || 0;
 
         if (points[i].descriptors && points[i].descriptors.length >= 2) {
             if (useHDC) {
@@ -99,6 +103,8 @@ export function columnarize(points: any[], tree: any, width: number, height: num
         a: angle,
         s: scale,
         d: descriptors,
+        sx,
+        sy,
         hdc: useHDC ? 1 : 0, // HDC Flag (renamed from h to avoid collision with height)
         t: compactTree(tree.rootNode),
     };
@@ -114,6 +120,8 @@ export function columnarizeCompact(points: any[], tree: any, width: number, heig
     const y = new Uint16Array(count);
     const angle = new Int16Array(count);
     const scale = new Uint8Array(count);
+    const sx = new Float32Array(count);
+    const sy = new Float32Array(count);
     const descriptors = new Uint32Array(count); // 32-bit compact descriptors
 
     for (let i = 0; i < count; i++) {
@@ -121,6 +129,8 @@ export function columnarizeCompact(points: any[], tree: any, width: number, heig
         y[i] = Math.round((points[i].y / height) * 65535);
         angle[i] = Math.round((points[i].angle / Math.PI) * 32767);
         scale[i] = Math.round(Math.log2(points[i].scale || 1));
+        sx[i] = points[i].sx || 0;
+        sy[i] = points[i].sy || 0;
 
         if (points[i].descriptors && points[i].descriptors.length >= 2) {
             // XOR folding: Combine two 32-bit values into one 32-bit value
@@ -135,6 +145,8 @@ export function columnarizeCompact(points: any[], tree: any, width: number, heig
         a: angle,
         s: scale,
         d: descriptors,
+        sx,
+        sy,
         compact: 1, // Flag to indicate compact 32-bit descriptors
         t: compactTree(tree.rootNode),
     };
@@ -182,20 +194,19 @@ export function decodeTaar(buffer: ArrayBuffer | Uint8Array) {
         console.warn(`Potential incompatible .taar version: ${version}. Standard is ${CURRENT_VERSION}.`);
     }
 
+    const normalizeBuffer = (arr: any, Type: any) => {
+        if (arr instanceof Uint8Array && Type !== Uint8Array) {
+            return new Type(arr.buffer.slice(arr.byteOffset, arr.byteOffset + arr.byteLength));
+        }
+        return arr;
+    };
+
     const dataList = content.dataList;
     for (let i = 0; i < dataList.length; i++) {
         const item = dataList[i];
 
         // 1. Process Tracking Data
         for (const td of item.trackingData) {
-            // Helper to ensure we have the right TypedArray if it was decoded as Uint8Array by msgpack
-            const normalizeBuffer = (arr: any, Type: any) => {
-                if (arr instanceof Uint8Array && Type !== Uint8Array) {
-                    return new Type(arr.buffer.slice(arr.byteOffset, arr.byteOffset + arr.byteLength));
-                }
-                return arr;
-            };
-
             td.px = normalizeBuffer(td.px, Float32Array);
             td.py = normalizeBuffer(td.py, Float32Array);
 
@@ -267,6 +278,13 @@ export function decodeTaar(buffer: ArrayBuffer | Uint8Array) {
                     } else {
                         col.d = new Uint32Array(col.d.buffer.slice(col.d.byteOffset, col.d.byteOffset + col.d.byteLength));
                     }
+                }
+
+                if (col.sx) {
+                    col.sx = normalizeBuffer(col.sx, Float32Array);
+                }
+                if (col.sy) {
+                    col.sy = normalizeBuffer(col.sy, Float32Array);
                 }
             }
         }

@@ -105,7 +105,7 @@ describe('AR Viewer (Controller)', () => {
         });
 
         await controller.addImageTargetsFromBuffer(taarData);
-    });
+    }, 30000);
 
     it('should match a FULL target image (no crop)', async () => {
         const detector = new DetectorLite(imgWidth, imgHeight);

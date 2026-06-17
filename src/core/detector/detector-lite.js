@@ -201,14 +201,14 @@ export class DetectorLite {
 
     /**
      * Aplica un filtro gaussiano binomial [1,4,6,4,1] - Optimizado
+     * Acceso secuencial por filas para máximo aprovechamiento de caché.
      */
     _applyGaussianFilter(data, width, height) {
         const output = new Float32Array(width * height);
         const temp = this._pyramidBuffers?.temp || new Float32Array(width * height);
         const k0 = 0.0625, k1 = 0.25, k2 = 0.375; // 1/16, 4/16, 6/16
-        const w1 = width - 1;
 
-        // Horizontal pass - Speed optimized with manual border handling
+        // Horizontal pass - acceso secuencial (cache-friendly)
         for (let y = 0; y < height; y++) {
             const rowOffset = y * width;
 
@@ -229,7 +229,7 @@ export class DetectorLite {
             temp[r1] = (data[r1 - 2] * k0 + data[r1 - 1] * k1 + data[r1] * (k2 + k1 + k0));
         }
 
-        // Vertical pass - Speed optimized
+        // Vertical pass
         for (let x = 0; x < width; x++) {
             // Top border (Normalized)
             output[x] = (temp[x] * (k0 + k1 + k2) + temp[x + width] * k1 + temp[x + width * 2] * k0);

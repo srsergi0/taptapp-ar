@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>LOCUS AR - Deformable Mesh Developer Playground</title>
+    <meta name="description" content="Desarrollo en caliente para pruebas de tracking de mallas deformables">
+    <link rel="icon" type="image/png" href="../docs/logo.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --accent: #ec4899;
+            --accent-rgb: 236, 72, 153;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --bg-darker: #030712;
+            --bg-dark: #0b0f19;
+            --panel-bg: rgba(17, 24, 39, 0.7);
+            --border: rgba(255, 255, 255, 0.08);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --font-main: 'Outfit', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-darker);
+            color: var(--text-main);
+            font-family: var(--font-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Ambient background glow */
+        .glow-bg {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(236, 72, 153, 0.05) 50%, rgba(0,0,0,0) 100%);
+            top: -200px;
+            right: -200px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        header {
+            width: 100%;
+            padding: 1.25rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(11, 15, 25, 0.6);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            z-index: 10;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-text {
+            font-size: 1.25rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .badge {
+            background: rgba(236, 72, 153, 0.15);
+            color: var(--accent);
+            border: 1px solid rgba(236, 72, 153, 0.3);
+            padding: 0.2rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .main-layout {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            max-width: 1600px;
+            width: 100%;
+            margin: 0 auto;
+            z-index: 1;
+        }
+
+        @media (max-width: 1024px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Left Side: Viewport */
+        .viewport-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .viewport-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            background: #020205;
+            border-radius: 24px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #video-feed {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(1); /* mirror if front, normal if back */
+            z-index: 1;
+        }
+
+        /* Overlay Canvas */
+        #render-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 999;
+            pointer-events: none;
+            transform: translateZ(10px);
+            -webkit-transform: translateZ(10px);
+            will-change: transform;
+        }
+
+        /* Setup / Upload Zone Overlay */
+        .upload-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(11, 15, 25, 0.9);
+            z-index: 5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            transition: opacity 0.3s ease;
+        }
+
+        .upload-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .drop-zone {
+            width: 100%;
+            max-width: 500px;
+            border: 2px dashed rgba(99, 102, 241, 0.3);
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 16px;
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .drop-zone:hover {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .drop-icon {
+            font-size: 3rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .drop-zone h3 {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .drop-zone p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .btn {
+            font-family: var(--font-main);
+            font-weight: 700;
+            font-size: 0.9rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.25);
+        }
+
+        /* Right Side: Panel Controls */
+        .controls-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            height: fit-content;
+        }
+
+        .panel-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1.25rem;
+        }
+
+        .panel-section:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .section-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Target Preview */
+        .target-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            border: 1px solid var(--border);
+        }
+
+        .target-thumb {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 8px;
+            background: #000;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .target-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .target-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .target-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        /* Stats & HUD */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+
+        .stat-box {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .stat-value {
+            font-family: var(--font-mono);
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-top: 0.25rem;
+        }
+
+        .stat-value.success { color: var(--success); }
+        .stat-value.warning { color: var(--warning); }
+        .stat-value.accent { color: var(--accent); }
+
+        /* Custom Toggle Switch */
+        .toggle-option {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: .3s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--primary);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Compilation Progress Bar */
+        .progress-container {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 9999px;
+            height: 8px;
+            margin-top: 1rem;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            width: 0%;
+            transition: width 0.1s ease;
+        }
+
+        /* Logs Console */
+        .console-log {
+            background: #020205;
+            border-radius: 12px;
+            padding: 0.75rem;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            height: 180px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            color: #a7f3d0;
+        }
+
+        .log-entry {
+            line-height: 1.4;
+        }
+
+        .log-time {
+            color: var(--text-muted);
+            margin-right: 0.5rem;
+        }
+
+        .log-error { color: #f87171; }
+        .log-warning { color: #fbbf24; }
+
+    </style>
+</head>
+<body>
+    <div class="glow-bg"></div>
+
+    <header>
+        <div class="logo-container">
+            <span class="logo-text">TapTapp AR</span>
+            <span class="badge">Deformable Dev</span>
+        </div>
+        <div>
+            <button class="btn btn-secondary" id="btn-reset" style="display: none;">🔄 Reiniciar</button>
+        </div>
+    </header>
+
+    <main class="main-layout">
+        <!-- Viewport Area -->
+        <div class="viewport-wrapper">
+            <div class="viewport-container">
+                <!-- Video stream -->
+                <video id="video-feed" autoplay playsinline muted></video>
+                
+                <!-- Rendering layer -->
+                <canvas id="render-canvas"></canvas>
+
+                <!-- Drag & Drop image target initially -->
+                <div class="upload-overlay" id="upload-panel">
+                    <div class="drop-zone" id="drag-zone">
+                        <div class="drop-icon">🖼️</div>
+                        <h3>Carga una imagen para Trackear</h3>
+                        <p>Arrastra y suelta tu imagen aquí o haz clic para buscar en tu disco</p>
+                        <input type="file" id="file-input" accept="image/png, image/jpeg" style="display: none;">
+                        <span style="color: var(--text-muted); font-size: 0.8rem;">O también:</span>
+                        <button class="btn btn-secondary" id="btn-use-default">✨ Usar Imagen Demo</button>
+                    </div>
+
+                    <div class="progress-container" id="compiler-progress-container">
+                        <div style="font-size: 0.85rem; text-align: center; margin-bottom: 0.5rem;" id="compiler-status-text">Compilando coordenadas de Laplace...</div>
+                        <div class="progress-bar" id="compiler-progress-bar"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); padding: 0.75rem 1.25rem; border-radius: 14px; border: 1px solid var(--border);">
+                <div style="font-size: 0.9rem; color: var(--text-muted);" id="tracker-status-bar">Esperando imagen objetivo...</div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-danger" id="btn-stop-tracking" style="display: none;">Detener Cámara</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls panel -->
+        <div class="controls-panel">
+            <!-- Target Information -->
+            <div class="panel-section">
+                <div class="section-title">Imagen Objetivo</div>
+                <div id="target-details-container">
+                    <div style="color: var(--text-muted); font-style: italic; font-size: 0.9rem; text-align: center; padding: 0.5rem 0;">Ninguno cargado</div>
+                </div>
+            </div>
+
+            <!-- Configuration / Features -->
+            <div class="panel-section">
+                <div class="section-title">Configuración del Motor</div>
+                
+                <div class="toggle-option">
+                    <span>Atención Foveal (Bio-Inspired)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-bio" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="toggle-option">
+                    <span>Ver Malla Deformable (Pink)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-mesh" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="toggle-option">
+                    <span>Ver Puntos de Tracking (Green)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-points" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Statistics Dashboard -->
+            <div class="panel-section">
+                <div class="section-title">Telemetría en Vivo</div>
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <div class="stat-label">FPS</div>
+                        <div class="stat-value accent" id="val-fps">0.0</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Inliers de Match</div>
+                        <div class="stat-value success" id="val-inliers">0</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Estado Engine</div>
+                        <div class="stat-value warning" id="val-mode">OFF</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Octava Activa</div>
+                        <div class="stat-value" id="val-octave">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Terminal Output -->
+            <div class="panel-section">
+                <div class="section-title">Consola de Desarrollo</div>
+                <div class="console-log" id="console-logs">
+                    <div class="log-entry"><span class="log-time">[11:00:00]</span>Playground listo. Carga una imagen.</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- App Logic -->
+    <script type="module" src="./deformable-dev-app.js"></script>
+</body>
+</html>

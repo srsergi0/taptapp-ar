@@ -41,9 +41,10 @@ describe('LSH Binarizer Accuracy', () => {
 
         // Hamming distance for Uint32Array(4)
         const popcount32 = (n) => {
-            n = n - ((n >> 1) & 0x55555555);
-            n = (n & 0x33333333) + ((n >> 2) & 0x33333333);
-            return (((n + (n >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
+            n = n >>> 0;
+            n = n - ((n >>> 1) & 0x55555555);
+            n = (n & 0x33333333) + ((n >>> 2) & 0x33333333);
+            return (((n + (n >>> 4)) & 0x0F0F0F0F) * 0x01010101) >>> 24;
         };
 
         const hamming = (a, b) => {

@@ -48,9 +48,10 @@ describe('Hyperdimensional Computing (HDC)', () => {
              * @returns {number}
              */
             const popcount = (n) => {
-                n = n - ((n >> 1) & 0x55555555);
-                n = (n & 0x33333333) + ((n >> 2) & 0x33333333);
-                return (((n + (n >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
+                n = n >>> 0;
+                n = n - ((n >>> 1) & 0x55555555);
+                n = (n & 0x33333333) + ((n >>> 2) & 0x33333333);
+                return (((n + (n >>> 4)) & 0x0F0F0F0F) * 0x01010101) >>> 24;
             };
             for (let i = 0; i < v1.length; i++) {
                 dist += popcount(v1[i] ^ v2[i]);

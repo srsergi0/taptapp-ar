@@ -6,6 +6,7 @@ import { multiplyPointHomographyInhomogenous, matrixInverse33 } from "../utils/g
 import { refineWithMorphology } from "../estimation/morph-refinement.js";
 import { popcount32 } from "./hierarchical-clustering.js";
 import { AR_CONFIG } from "../constants.js";
+import { validateDeformableMatches } from "./spectralDeformableMatcher.js";
 
 const INLIER_THRESHOLD = AR_CONFIG.INLIER_THRESHOLD;
 const MIN_NUM_INLIERS = AR_CONFIG.MIN_NUM_INLIERS;
@@ -112,7 +113,9 @@ const match = ({ keyframe, querypoints: rawQuerypoints, querywidth, queryheight,
             x: col.x[bestIndex],
             y: col.y[bestIndex],
             angle: col.a[bestIndex],
-            scale: col.s ? col.s[bestIndex] : keyframe.s
+            scale: col.s ? col.s[bestIndex] : keyframe.s,
+            sx: col.sx ? col.sx[bestIndex] : undefined,
+            sy: col.sy ? col.sy[bestIndex] : undefined
           },
           d: bestD1
         });
@@ -152,6 +155,22 @@ const match = ({ keyframe, querypoints: rawQuerypoints, querywidth, queryheight,
   });
 
   if (H === null) {
+    const deformableResult = validateDeformableMatches({
+        matches: houghMatches,
+        minInliers: MIN_NUM_INLIERS
+    });
+
+    if (deformableResult) {
+        if (debugMode) debugExtra.deformableResult = deformableResult;
+        return {
+            isDeformable: true,
+            inliers: deformableResult.inliers,
+            model: deformableResult.model,
+            matches: deformableResult.inliers,
+            debugExtra
+        };
+    }
+
     return { debugExtra };
   }
 
@@ -241,7 +260,9 @@ const match = ({ keyframe, querypoints: rawQuerypoints, querywidth, queryheight,
           x: col.x[bestIndex],
           y: col.y[bestIndex],
           angle: col.a[bestIndex],
-          scale: col.s ? col.s[bestIndex] : keyframe.s
+          scale: col.s ? col.s[bestIndex] : keyframe.s,
+          sx: col.sx ? col.sx[bestIndex] : undefined,
+          sy: col.sy ? col.sy[bestIndex] : undefined
         }
       });
     }

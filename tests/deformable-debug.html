@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Locus AR - Deformable Diagnostic Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Space+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0f111a;
+            --bg-card: rgba(30, 41, 59, 0.4);
+            --bg-card-border: rgba(99, 102, 241, 0.15);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.4);
+            --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.3);
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --pink: #ec4899;
+            --purple: #a855f7;
+            --cyan: #06b6d4;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 2rem;
+            line-height: 1.5;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(236, 72, 153, 0.08) 0%, transparent 40%);
+        }
+
+        header {
+            max-width: 1400px;
+            margin: 0 auto 2rem auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--bg-card-border);
+            padding-bottom: 1.5rem;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .badge-diagnostics {
+            background: linear-gradient(135deg, var(--accent), var(--purple));
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #ffffff, var(--text-muted));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* --- Dashboard Grid Layout --- */
+        .dashboard-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* --- Sidebar & Configuration Panel --- */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .panel-card {
+            background: var(--bg-card);
+            border: 1px solid var(--bg-card-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            backdrop-filter: blur(16px);
+        }
+
+        .panel-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: 0.5rem;
+        }
+
+        .file-drop-zone {
+            border: 2px dashed rgba(99, 102, 241, 0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(15, 23, 42, 0.3);
+            margin-bottom: 1rem;
+        }
+
+        .file-drop-zone:hover {
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.05);
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.1);
+        }
+
+        .file-drop-icon {
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .file-drop-text {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .target-preview-container {
+            margin-top: 1rem;
+        }
+
+        .target-preview-card {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: rgba(15, 23, 42, 0.5);
+            padding: 0.75rem;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .target-preview-img {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .target-preview-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .target-preview-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .target-preview-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .btn-action {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            width: 100%;
+            background: linear-gradient(135deg, var(--accent), var(--purple));
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 0.85rem;
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px var(--accent-glow);
+        }
+
+        .btn-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6);
+        }
+
+        .btn-action:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-main);
+            box-shadow: none;
+            margin-top: 0.5rem;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.1);
+            box-shadow: none;
+            transform: none;
+        }
+
+        /* --- Diagnostic Visual Grid --- */
+        .main-dashboard {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .diagnostic-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 600px) {
+            .diagnostic-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .diag-card {
+            background: var(--bg-card);
+            border: 1px solid var(--bg-card-border);
+            border-radius: 16px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            backdrop-filter: blur(16px);
+            min-height: 350px;
+        }
+
+        .diag-card-large {
+            grid-column: 1 / -1;
+        }
+
+        .diag-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .diag-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .diag-badge {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .badge-cyan { background: rgba(6, 182, 212, 0.15); color: var(--cyan); border: 1px solid rgba(6, 182, 212, 0.3); }
+        .badge-purple { background: rgba(168, 85, 247, 0.15); color: var(--purple); border: 1px solid rgba(168, 85, 247, 0.3); }
+        .badge-pink { background: rgba(236, 72, 153, 0.15); color: var(--pink); border: 1px solid rgba(236, 72, 153, 0.3); }
+        .badge-emerald { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
+
+        .canvas-container {
+            flex: 1;
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+            min-height: 250px;
+        }
+
+        .diag-canvas {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        .canvas-placeholder {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        /* --- Match Filter Buttons --- */
+        .filter-container {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.25rem;
+        }
+
+        .filter-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-muted);
+            border-radius: 6px;
+            padding: 0.35rem 0.75rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .filter-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+        }
+
+        /* --- Terminal Logs --- */
+        .terminal-panel {
+            background: #090a0f;
+            border: 1px solid var(--bg-card-border);
+            border-radius: 16px;
+            padding: 1.25rem;
+            font-family: 'Space Mono', monospace;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .terminal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding-bottom: 0.5rem;
+        }
+
+        .terminal-title {
+            font-size: 0.85rem;
+            color: var(--accent);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .terminal-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--danger);
+            display: inline-block;
+            box-shadow: 0 0 8px var(--danger);
+        }
+
+        .terminal-dot.success {
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        .terminal-console {
+            height: 180px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            font-size: 0.8rem;
+            color: #d1d5db;
+            padding-right: 0.5rem;
+        }
+
+        .terminal-console::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .terminal-console::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+        }
+
+        .terminal-entry {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .entry-time {
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .entry-msg {
+            word-break: break-all;
+        }
+
+        .entry-error { color: var(--danger); }
+        .entry-success { color: var(--success); }
+        .entry-warning { color: var(--warning); }
+        .entry-info { color: var(--cyan); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-container">
+            <h1>Locus AR Diagnostics</h1>
+            <span class="badge-diagnostics">Spectral Deformable Engine</span>
+        </div>
+        <div style="font-size: 0.9rem; color: var(--text-muted)">
+            Entorno de Prueba Estático
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <!-- Sidebar Panel -->
+        <div class="sidebar">
+            <!-- Target Selection -->
+            <div class="panel-card">
+                <div class="panel-title">
+                    <span>🎯</span> Imagen Objetivo (Target)
+                </div>
+                <div class="file-drop-zone" id="drop-target">
+                    <span class="file-drop-icon">📁</span>
+                    <span class="file-drop-text">Arrastra el target aquí o haz clic</span>
+                    <input type="file" class="file-input" id="input-target" accept="image/*">
+                </div>
+                <button class="btn-action btn-secondary" id="btn-demo-target">Usar Target Demo</button>
+                
+                <div class="target-preview-container" id="target-preview">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+
+            <!-- Scene Image Selection -->
+            <div class="panel-card">
+                <div class="panel-title">
+                    <span>📸</span> Imagen Escena (Query)
+                </div>
+                <div class="file-drop-zone" id="drop-scene">
+                    <span class="file-drop-icon">📷</span>
+                    <span class="file-drop-text">Arrastra la foto de escena aquí</span>
+                    <input type="file" class="file-input" id="input-scene" accept="image/*">
+                </div>
+                <button class="btn-action btn-secondary" id="btn-demo-scene">Usar Escena Demo</button>
+                
+                <div class="target-preview-container" id="scene-preview">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+
+            <!-- Execution Button -->
+            <button class="btn-action" id="btn-run-diag">
+                <span>⚡</span> Ejecutar Diagnóstico
+            </button>
+        </div>
+
+        <!-- Main Dashboard View -->
+        <div class="main-dashboard">
+            <!-- Telemetry Logs / Terminal -->
+            <div class="terminal-panel">
+                <div class="terminal-header">
+                    <div class="terminal-title">
+                        <span class="terminal-dot" id="console-status-dot"></span>
+                        <span>DIAGNOSTIC CONSOLE & STATS</span>
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted)">
+                        PnP Pose Solver + Spectral RANSAC
+                    </div>
+                </div>
+                <div class="terminal-console" id="console-logs">
+                    <div class="terminal-entry">
+                        <span class="entry-time">[11:23:44]</span>
+                        <span class="entry-msg entry-info">Sistema de diagnóstico listo. Por favor, selecciona un target y una imagen de escena para analizar.</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Diagnostic Canvases Grid -->
+            <div class="diagnostic-grid">
+                <!-- Card 1: Target Grayscale & Keypoints -->
+                <div class="diag-card">
+                    <div class="diag-header">
+                        <div class="diag-title">
+                            <span>🔵</span> Puntos del Target
+                        </div>
+                        <span class="diag-badge badge-cyan" id="badge-target-pts">0 Puntos</span>
+                    </div>
+                    <div class="canvas-container">
+                        <canvas class="diag-canvas" id="canvas-target"></canvas>
+                        <div class="canvas-placeholder" id="placeholder-target">No hay imagen de target</div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Scene/Query Grayscale & Keypoints -->
+                <div class="diag-card">
+                    <div class="diag-header">
+                        <div class="diag-title">
+                            <span>🟡</span> Puntos de la Escena
+                        </div>
+                        <span class="diag-badge badge-cyan" id="badge-scene-pts">0 Puntos</span>
+                    </div>
+                    <div class="canvas-container">
+                        <canvas class="diag-canvas" id="canvas-scene"></canvas>
+                        <div class="canvas-placeholder" id="placeholder-scene">No hay imagen de escena</div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Feature Matches Visualizer -->
+                <div class="diag-card diag-card-large">
+                    <div class="diag-header">
+                        <div class="diag-title">
+                            <span>🔗</span> Correspondencia de Características
+                        </div>
+                        <div class="filter-container">
+                            <button class="filter-btn active" id="btn-filter-all">Todos</button>
+                            <button class="filter-btn" id="btn-filter-hough">Hough</button>
+                            <button class="filter-btn" id="btn-filter-inliers">Inliers</button>
+                        </div>
+                    </div>
+                    <div class="canvas-container">
+                        <canvas class="diag-canvas" id="canvas-matches"></canvas>
+                        <div class="canvas-placeholder" id="placeholder-matches">Ejecuta el diagnóstico para mapear correspondencias</div>
+                    </div>
+                </div>
+
+                <!-- Card 4: Warped Overlay Image -->
+                <div class="diag-card">
+                    <div class="diag-header">
+                        <div class="diag-title">
+                            <span>📐</span> Proyección de Homografía (Warp)
+                        </div>
+                        <span class="diag-badge badge-emerald" id="badge-warp">Desactivado</span>
+                    </div>
+                    <div class="canvas-container">
+                        <canvas class="diag-canvas" id="canvas-warp"></canvas>
+                        <div class="canvas-placeholder" id="placeholder-warp">Muestra la escena des-deformada proyectada en el plano del target</div>
+                    </div>
+                </div>
+
+                <!-- Card 5: Deformable Mesh Relaxation overlay -->
+                <div class="diag-card">
+                    <div class="diag-header">
+                        <div class="diag-title">
+                            <span>🌸</span> Malla Deformable Relajada (Pink Mesh)
+                        </div>
+                        <span class="diag-badge badge-pink" id="badge-mesh">Desactivado</span>
+                    </div>
+                    <div class="canvas-container">
+                        <canvas class="diag-canvas" id="canvas-mesh"></canvas>
+                        <div class="canvas-placeholder" id="placeholder-mesh">Superposición de la malla relaxed sobre la escena detectada</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="./deformable-debug-app.js"></script>
+</body>
+</html>

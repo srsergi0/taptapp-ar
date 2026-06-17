@@ -227,12 +227,19 @@ class BioInspiredController extends Controller {
 
             if (matchingIndexes.length > 0) {
                 // Use full input for detection (bio engine already optimized upstream processing)
-                const { targetIndex: matchedTargetIndex, modelViewTransform, featurePoints } =
+                const { targetIndex: matchedTargetIndex, modelViewTransform, featurePoints, debugExtra } =
                     await this._detectAndMatch(inputData, matchingIndexes, bioResult.octavesToProcess || null);
 
                 if (matchedTargetIndex !== -1) {
                     this.trackingStates[matchedTargetIndex].isTracking = true;
                     this.trackingStates[matchedTargetIndex].currentModelViewTransform = modelViewTransform;
+                    if (debugExtra && debugExtra.isDeformable) {
+                        this.trackingStates[matchedTargetIndex].isDeformable = true;
+                        this.trackingStates[matchedTargetIndex].deformableModel = debugExtra.deformableModel;
+                    } else {
+                        this.trackingStates[matchedTargetIndex].isDeformable = false;
+                        this.trackingStates[matchedTargetIndex].deformableModel = null;
+                    }
 
                     // Update bio engine fovea to focus on detected target
                     if (bioResult.attentionRegions?.[0]) {
@@ -335,14 +342,14 @@ class BioInspiredController extends Controller {
             }
         }
 
-        const { targetIndex, modelViewTransform, screenCoords, worldCoords, featurePoints } = await this._workerMatch(
+        const { targetIndex, modelViewTransform, screenCoords, worldCoords, featurePoints, debugExtra } = await this._workerMatch(
             null, // No feature points, worker will detect from inputData
             targetIndexes,
             inputData,
             predictedScale,
             octavesToProcess
         );
-        return { targetIndex, modelViewTransform, screenCoords, worldCoords, featurePoints };
+        return { targetIndex, modelViewTransform, screenCoords, worldCoords, featurePoints, debugExtra };
     }
 
     /**

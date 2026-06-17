@@ -56,14 +56,21 @@ onmessage = (msg) => {
       for (let i = 0; i < interestedTargetIndexes.length; i++) {
         const matchingIndex = interestedTargetIndexes[i];
 
-        const { keyframeIndex, screenCoords, worldCoords, debugExtra } = matcher.matchDetection(
+        const result = matcher.matchDetection(
           matchingDataList[matchingIndex],
           featurePoints,
           data.expectedScale
         );
-        matchedDebugExtra = debugExtra;
+        matchedDebugExtra = result.debugExtra || {};
 
-        if (keyframeIndex !== -1) {
+        if (result.keyframeIndex !== -1 || result.isDeformable) {
+          const screenCoords = result.isDeformable
+            ? result.inliers.map(m => m.querypoint)
+            : result.screenCoords;
+          const worldCoords = result.isDeformable
+            ? result.inliers.map(m => m.keypoint)
+            : result.worldCoords;
+
           const modelViewTransform = estimator.estimate({ screenCoords, worldCoords });
 
           if (modelViewTransform) {
@@ -71,6 +78,13 @@ onmessage = (msg) => {
             matchedModelViewTransform = modelViewTransform;
             matchedScreenCoords = screenCoords;
             matchedWorldCoords = worldCoords;
+            if (result.isDeformable) {
+              matchedDebugExtra.isDeformable = true;
+              matchedDebugExtra.deformableModel = result.model;
+            }
+          } else {
+            matchedTargetIndex = -1;
+            continue;
           }
           break;
         }

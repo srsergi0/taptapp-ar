@@ -264,13 +264,23 @@ class Controller {
             }
         }
 
-        const { targetIndex, modelViewTransform, screenCoords, worldCoords, featurePoints } = await this._workerMatch(
+        // Calculate a coarse octave index (targeting ~320px width) for ultra-fast initial detection
+        let coarseOctave = 0;
+        let w = this.inputWidth;
+        const maxOctaves = this.fullDetector?.numOctaves || 1;
+        while (w > 320 && coarseOctave < maxOctaves - 1) {
+            w = w >> 1;
+            coarseOctave++;
+        }
+
+        const { targetIndex, modelViewTransform, screenCoords, worldCoords, featurePoints, debugExtra } = await this._workerMatch(
             null, // No feature points, worker will detect from inputData
             targetIndexes,
             inputData,
-            predictedScale
+            predictedScale,
+            [coarseOctave]
         );
-        return { targetIndex, modelViewTransform, screenCoords, worldCoords, featurePoints };
+        return { targetIndex, modelViewTransform, screenCoords, worldCoords, featurePoints, debugExtra };
     }
 
     async _trackAndUpdate(inputData: any, lastModelViewTransform: number[][], targetIndex: number) {
@@ -404,12 +414,19 @@ class Controller {
                         matchingIndexes.push(i);
                     }
 
-                    const { targetIndex: matchedTargetIndex, modelViewTransform, featurePoints } =
+                    const { targetIndex: matchedTargetIndex, modelViewTransform, featurePoints, debugExtra } =
                         await this._detectAndMatch(inputData, matchingIndexes);
 
                     if (matchedTargetIndex !== -1) {
                         this.trackingStates[matchedTargetIndex].isTracking = true;
                         this.trackingStates[matchedTargetIndex].currentModelViewTransform = modelViewTransform;
+                        if (debugExtra && debugExtra.isDeformable) {
+                            this.trackingStates[matchedTargetIndex].isDeformable = true;
+                            this.trackingStates[matchedTargetIndex].deformableModel = debugExtra.deformableModel;
+                        } else {
+                            this.trackingStates[matchedTargetIndex].isDeformable = false;
+                            this.trackingStates[matchedTargetIndex].deformableModel = null;
+                        }
                     }
 
                     // If we have feature points, we can store them in a special "lastSeenFeatures" 
@@ -530,13 +547,13 @@ class Controller {
         return this._workerTrackUpdate(modelViewTransform, trackFeatures);
     }
 
-    _workerMatch(featurePoints: any, targetIndexes: number[], inputData: any = null, expectedScale?: number): Promise<any> {
+    _workerMatch(featurePoints: any, targetIndexes: number[], inputData: any = null, expectedScale?: number, octavesToProcess?: number[]): Promise<any> {
         return new Promise((resolve) => {
             if (!this.worker) {
                 // If no feature points but we have input data, detect first
                 let fpPromise;
                 if (!featurePoints && inputData) {
-                    fpPromise = Promise.resolve(this.fullDetector!.detect(inputData).featurePoints);
+                    fpPromise = Promise.resolve(this.fullDetector!.detect(inputData, { octavesToProcess }).featurePoints);
                 } else {
                     fpPromise = Promise.resolve(featurePoints);
                 }
@@ -566,9 +583,9 @@ class Controller {
             };
 
             if (inputData) {
-                this.worker.postMessage({ type: "match", inputData, targetIndexes, expectedScale });
+                this.worker.postMessage({ type: "match", inputData, targetIndexes, expectedScale, octavesToProcess });
             } else {
-                this.worker.postMessage({ type: "match", featurePoints: featurePoints, targetIndexes, expectedScale });
+                this.worker.postMessage({ type: "match", featurePoints: featurePoints, targetIndexes, expectedScale, octavesToProcess });
             }
         });
     }
@@ -616,20 +633,35 @@ class Controller {
 
         for (let i = 0; i < targetIndexes.length; i++) {
             const matchingIndex = targetIndexes[i];
-            const { keyframeIndex, screenCoords, worldCoords, debugExtra } = this.mainThreadMatcher.matchDetection(
+            const result = this.mainThreadMatcher.matchDetection(
                 this.matchingDataList[matchingIndex],
                 featurePoints,
                 expectedScale
             );
-            matchedDebugExtra = debugExtra;
+            matchedDebugExtra = result.debugExtra || {};
 
-            if (keyframeIndex !== -1) {
+            if (result.keyframeIndex !== -1 || result.isDeformable) {
+                const screenCoords = result.isDeformable
+                    ? result.inliers.map((m: any) => m.querypoint)
+                    : result.screenCoords;
+                const worldCoords = result.isDeformable
+                    ? result.inliers.map((m: any) => m.keypoint)
+                    : result.worldCoords;
+
                 const modelViewTransform = this.mainThreadEstimator.estimate({ screenCoords, worldCoords });
+
                 if (modelViewTransform) {
                     matchedTargetIndex = matchingIndex;
                     matchedModelViewTransform = modelViewTransform;
                     matchedScreenCoords = screenCoords;
                     matchedWorldCoords = worldCoords;
+                    if (result.isDeformable) {
+                        matchedDebugExtra.isDeformable = true;
+                        matchedDebugExtra.deformableModel = result.model;
+                    }
+                } else {
+                    matchedTargetIndex = -1;
+                    continue;
                 }
                 break;
             }

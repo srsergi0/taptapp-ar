@@ -40,6 +40,6 @@ export const AR_CONFIG = {
     ONE_EURO_FILTER_BETA: 0.1,
 
     // TAAR Size Optimization
-    USE_COMPACT_DESCRIPTORS: true,  // 32-bit XOR folded descriptors vs 64-bit raw
+    USE_COMPACT_DESCRIPTORS: false,  // 32-bit XOR folded descriptors vs 64-bit raw
     COMPACT_HAMMING_THRESHOLD: 8,   // Threshold for 32-bit descriptors (vs 15 for 64-bit)
 };

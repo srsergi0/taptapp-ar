@@ -6,9 +6,10 @@ const NUM_ASSIGNMENT_HYPOTHESES = 12;
 const NUM_CENTERS = 8;
 
 export function popcount32(n) {
-  n = n - ((n >> 1) & 0x55555555);
-  n = (n & 0x33333333) + ((n >> 2) & 0x33333333);
-  return (((n + (n >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
+  n = n >>> 0;
+  n = n - ((n >>> 1) & 0x55555555);
+  n = (n & 0x33333333) + ((n >>> 2) & 0x33333333);
+  return (((n + (n >>> 4)) & 0x0F0F0F0F) * 0x01010101) >>> 24;
 }
 
 const _computeKMedoids = (options) => {
