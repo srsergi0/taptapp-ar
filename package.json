@@ -61,12 +61,14 @@
     "scripts": {
         "build": "node scripts/build.mjs",
         "build:dev": "tsc",
-        "prepublishOnly": "npm run build",
+        "prepublishOnly": "bun run build",
         "test": "vitest",
         "test:react": "vite --port 4321 --open tests/reliability-test.html",
-        "test:demo3": "npm run build:demo3 && vite --port 4322 --open docs/demo3.html",
+        "test:demo3": "bun run build:demo3 && vite --port 4322 --open docs/demo3.html",
         "build:demo4": "esbuild tests/demo4-app.ts --bundle --outfile=docs/demo4-app.js --format=esm",
-        "test:demo4": "npm run build:demo4 && vite --port 4323 --open docs/demo4.html"
+        "test:demo4": "bun run build:demo4 && vite --port 4323 --open docs/demo4.html",
+        "lint": "oxlint .",
+        "lint:fix": "oxlint . --fix"
     },
     "peerDependencies": {
         "aframe": ">=1.5.0",
@@ -88,6 +90,9 @@
             "optional": true
         }
     },
+    "trustedDependencies": [
+        "esbuild"
+    ],
     "dependencies": {
         "@msgpack/msgpack": "^3.0.0-beta2",
         "ml-matrix": "^6.10.4",
@@ -100,10 +105,12 @@
         "@types/three": "^0.170.0",
         "esbuild": "^0.27.2",
         "jimp": "^1.6.0",
+        "oxlint": "^1.70.0",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
         "terser": "^5.44.1",
         "typescript": "^5.4.5",
+        "vite": "^5.0.0",
         "vitest": "^4.0.16"
     },
     "publishConfig": {

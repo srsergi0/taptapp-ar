@@ -213,8 +213,7 @@ export class DetectorLite {
             const rowOffset = y * width;
 
             // Left border (Normalized)
-            const sumL0 = k0 + k1 + k2 + k1 + k0; // Ideal sum
-            temp[rowOffset] = (data[rowOffset] * (k0 + k1 + k2) + data[rowOffset + 1] * k1 + data[rowOffset + 2] * k0) * (1.0 / (k0 + k1 + k2));
+            temp[rowOffset] = (data[rowOffset] * (k0 + k1 + k2) + data[rowOffset + 1] * k1 + data[rowOffset + 2] * k0);
             temp[rowOffset + 1] = (data[rowOffset] * k1 + data[rowOffset + 1] * k2 + data[rowOffset + 2] * k1 + data[rowOffset + 3] * k0) * (1.0 / (k1 + k2 + k1 + k0));
 
             // Main loop - NO boundary checks
@@ -227,13 +226,13 @@ export class DetectorLite {
             const r2 = rowOffset + width - 2;
             const r1 = rowOffset + width - 1;
             temp[r2] = (data[r2 - 2] * k0 + data[r2 - 1] * k1 + data[r2] * k2 + data[r1] * k1) * (1.0 / (k0 + k1 + k2 + k1));
-            temp[r1] = (data[r1 - 2] * k0 + data[r1 - 1] * k1 + data[r1] * (k2 + k1 + k0)) * (1.0 / (k0 + k1 + k2));
+            temp[r1] = (data[r1 - 2] * k0 + data[r1 - 1] * k1 + data[r1] * (k2 + k1 + k0));
         }
 
         // Vertical pass - Speed optimized
         for (let x = 0; x < width; x++) {
             // Top border (Normalized)
-            output[x] = (temp[x] * (k0 + k1 + k2) + temp[x + width] * k1 + temp[x + width * 2] * k0) * (1.0 / (k0 + k1 + k2));
+            output[x] = (temp[x] * (k0 + k1 + k2) + temp[x + width] * k1 + temp[x + width * 2] * k0);
             output[x + width] = (temp[x] * k1 + temp[x + width] * k2 + temp[x + width * 2] * k1 + temp[x + width * 3] * k0) * (1.0 / (k1 + k2 + k1 + k0));
 
             // Main loop - NO boundary checks
@@ -246,7 +245,7 @@ export class DetectorLite {
             const b2 = (height - 2) * width + x;
             const b1 = (height - 1) * width + x;
             output[b2] = (temp[b2 - width * 2] * k0 + temp[b2 - width] * k1 + temp[b2] * k2 + temp[b1] * k1) * (1.0 / (k0 + k1 + k2 + k1));
-            output[b1] = (temp[b1 - width * 2] * k0 + temp[b1 - width] * k1 + temp[b1] * (k2 + k1 + k0)) * (1.0 / (k0 + k1 + k2));
+            output[b1] = (temp[b1 - width * 2] * k0 + temp[b1 - width] * k1 + temp[b1] * (k2 + k1 + k0));
         }
 
         return { data: output, width, height };

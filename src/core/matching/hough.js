@@ -23,7 +23,10 @@ const computeHoughMatches = (options) => {
   for (let i = 0; i < matches.length; i++) {
     const queryscale = matches[i].querypoint.scale;
     const keyscale = matches[i].keypoint.scale;
-    if (keyscale == 0) console.log("ERROR divide zero");
+    if (keyscale == 0) {
+      console.log("ERROR divide zero");
+      continue;
+    }
     const scale = queryscale / keyscale;
     projectedDims.push(scale * maxDim);
   }
@@ -33,10 +36,7 @@ const computeHoughMatches = (options) => {
   projectedDims.sort((a1, a2) => {
     return a1 - a2;
   });
-  const medianProjectedDim =
-    projectedDims[
-    Math.floor(projectedDims.length / 2) - (projectedDims.length % 2 == 0 ? 1 : 0) - 1
-    ];
+  const medianProjectedDim = projectedDims[Math.floor((projectedDims.length - 1) / 2)];
 
   const binSize = Math.max(20, 0.25 * medianProjectedDim); // 🚀 Ensure bins aren't too small for noise
   const numXBins = Math.max(5, Math.min(40, Math.ceil((maxX - minX) / binSize))); // 🎯 Cap bins to keep voting dense

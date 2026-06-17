@@ -12,6 +12,8 @@
         "forceConsistentCasingInFileNames": true,
         "allowJs": true,
         "resolveJsonModule": true,
+        "allowImportingTsExtensions": true,
+        "emitDeclarationOnly": true,
         "baseUrl": ".",
         "paths": {
             "@/*": [

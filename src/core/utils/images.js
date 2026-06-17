@@ -22,11 +22,20 @@ const upsampleBilinear = ({ image, padOneWidth, padOneHeight }) => {
       if (sj0 < 0) sj0 = 0; // border
       if (sj1 >= height) sj1 = height - 1; //border
 
-      const value =
-        (si1 - si) * (sj1 - sj) * data[sj0 * width + si0] +
-        (si1 - si) * (sj - sj0) * data[sj1 * width + si0] +
-        (si - si0) * (sj1 - sj) * data[sj0 * width + si1] +
-        (si - si0) * (sj - sj0) * data[sj1 * width + si1];
+      let value;
+      if (si0 === si1 && sj0 === sj1) {
+        value = data[sj0 * width + si0];
+      } else if (si0 === si1) {
+        value = (sj1 - sj) * data[sj0 * width + si0] + (sj - sj0) * data[sj1 * width + si0];
+      } else if (sj0 === sj1) {
+        value = (si1 - si) * data[sj0 * width + si0] + (si - si0) * data[sj0 * width + si1];
+      } else {
+        value =
+          (si1 - si) * (sj1 - sj) * data[sj0 * width + si0] +
+          (si1 - si) * (sj - sj0) * data[sj1 * width + si0] +
+          (si - si0) * (sj1 - sj) * data[sj0 * width + si1] +
+          (si - si0) * (sj - sj0) * data[sj1 * width + si1];
+      }
 
       temp[j * dstWidth + i] = value;
     }

@@ -112,6 +112,11 @@ class PredictiveCoding {
             return 1.0; // Assume maximum change for first frame
         }
 
+        // Save current block means as previous before computing new
+        for (let i = 0; i < this.blockMeans.length; i++) {
+            this.prevBlockMeans[i] = this.blockMeans[i];
+        }
+
         // Compute block means for current frame
         this._computeBlockMeans(inputData, this.blockMeans);
 
@@ -258,8 +263,8 @@ class PredictiveCoding {
 
         if (dt > 0) {
             // Position velocity
-            this.motionModel.vx = (latest[12] - prev[12]) / dt * 0.016; // Normalize to ~60fps
-            this.motionModel.vy = (latest[13] - prev[13]) / dt * 0.016;
+            this.motionModel.vx = (latest[12] - prev[12]);
+            this.motionModel.vy = (latest[13] - prev[13]);
 
             // Scale velocity (from diagonal average)
             const prevScale = (Math.abs(prev[0]) + Math.abs(prev[5])) / 2;

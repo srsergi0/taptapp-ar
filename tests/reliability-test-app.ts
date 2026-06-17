@@ -291,7 +291,7 @@ function handleARUpdate(data: any, markerW: number, markerH: number, controller:
         let smoothedCoords = screenCoords || [];
         if (screenCoords && screenCoords.length > 0) {
             smoothedCoords = screenCoords.map((p: any) => {
-                const rel = reliabilities ? reliabilities[p.id] || 0.5 : 0.5;
+                const rel = reliabilities ? reliabilities[p.id] ?? 0.5 : 0.5;
                 const smoothed = smoother.smooth(p.id, p, rel);
                 return { ...smoothed, id: p.id };
             });
@@ -320,8 +320,8 @@ function handleARUpdate(data: any, markerW: number, markerH: number, controller:
             }
 
             // Pose Verification Log (Reality vs AR)
-            const f = (controller as any).projectionTransform[0][0];
-            const tz = modelViewTransform[2][3];
+            const f = (controller as any).projectionTransform?.[0]?.[0] ?? 0;
+            const tz = modelViewTransform?.[2]?.[3] ?? 0;
             if (Math.random() < 0.01) {
                 const estScale = (f / tz);
                 const simScale = parseFloat(simScaleEl.textContent || "0");

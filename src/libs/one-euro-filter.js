@@ -18,8 +18,8 @@ class LowPassFilter {
     }
 
     filter(value) {
-        this.y = value;
         this.s = this.alpha * value + (1.0 - this.alpha) * this.s;
+        this.y = this.s;
         return this.s;
     }
 

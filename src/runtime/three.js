@@ -70,17 +70,18 @@ export class TaarThree {
 
   stop() {
     this.controller.stopProcessVideo();
-    const tracks = this.video.srcObject.getTracks();
-    tracks.forEach(function (track) {
-      track.stop();
-    });
-    this.video.remove();
+    if (this.video) {
+      if (this.video.srcObject) {
+        this.video.srcObject.getTracks().forEach(function (track) { track.stop(); });
+      }
+      this.video.remove();
+    }
   }
 
-  switchCamera() {
+  async switchCamera() {
     this.shouldFaceUser = !this.shouldFaceUser;
     this.stop();
-    this.start();
+    await this.start();
   }
 
   addAnchor(targetIndex) {
@@ -120,7 +121,7 @@ export class TaarThree {
   }
 
   _startVideo() {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this.video = document.createElement("video");
 
       this.video.setAttribute("autoplay", "");

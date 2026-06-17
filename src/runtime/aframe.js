@@ -253,7 +253,7 @@ AFRAME.registerComponent("taar-image", {
     }
   },
   remove: function () {
-    const arSystem = this.el.sceneEl.systems["mindar-image-system"];
+    const arSystem = this.el.sceneEl.systems["taar-image-system"];
     arSystem.stop();
   },
 });

@@ -45,7 +45,7 @@ export class ImageSearchBridge {
         }
 
         // 3. Handle Raw Data (Uint8Array / Buffer)
-        if (!imageData && (source instanceof Uint8Array || (typeof Buffer !== 'undefined' && Buffer.isBuffer(source)))) {
+        if (!imageData && source && source.data && source.width && source.height) {
             // If it's raw data, we assume it's already grayscale or RGBA 
             // This part is tricky without knowing dimensions. 
             // We'll assume the user provides { data, width, height } for raw buffers
@@ -89,8 +89,9 @@ export class ImageSearchBridge {
         return new Promise((resolve, reject) => {
             const img = new Image();
             img.crossOrigin = "anonymous";
-            img.onload = () => resolve(img);
-            img.onerror = reject;
+            const timeout = setTimeout(() => reject(new Error('Image load timeout')), 30000);
+            img.onload = () => { clearTimeout(timeout); resolve(img); };
+            img.onerror = (e) => { clearTimeout(timeout); reject(e); };
             img.src = url;
         });
     }

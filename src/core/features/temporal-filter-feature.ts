@@ -43,7 +43,7 @@ export class TemporalFilterFeature implements ControllerFeature {
             if (isTracking) {
                 state.trackMiss = 0;
                 state.trackCount += 1;
-                if (state.trackCount > this.warmupTolerance) {
+                if (state.trackCount >= this.warmupTolerance) {
                     state.showing = true;
                     this.onToggleShowing?.(targetIndex, true);
                 }
@@ -54,7 +54,7 @@ export class TemporalFilterFeature implements ControllerFeature {
             if (!isTracking) {
                 state.trackCount = 0;
                 state.trackMiss += 1;
-                if (state.trackMiss > this.missTolerance) {
+                if (state.trackMiss >= this.missTolerance) {
                     state.showing = false;
                     this.onToggleShowing?.(targetIndex, false);
                 }

@@ -98,13 +98,6 @@ class BioInspiredEngine {
         const fullSize = this.width * this.height;
         const foveaSize = Math.ceil(fullSize * this.config.FOVEA_RADIUS_RATIO ** 2 * Math.PI);
 
-        // Multi-resolution output buffer
-        this.outputBuffer = {
-            fovea: new Uint8Array(foveaSize),
-            parafovea: new Uint8Array(Math.ceil(foveaSize * 4)),
-            periphery: new Uint8Array(Math.ceil(fullSize * 0.25)),
-        };
-
         // Change detection buffer
         this.changeBuffer = new Float32Array(Math.ceil(fullSize / 64)); // 8x8 blocks
     }

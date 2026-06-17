@@ -16,11 +16,7 @@ export class CropDetectionFeature implements ControllerFeature {
     }
 
     detect(inputData: any, isMoving: boolean = true) {
-        if (!this.enabled || !this.cropDetector) {
-            // Fallback to full detection if disabled? 
-            // Actually CropDetector.detect is just full detection.
-            // We'll expose the methods here.
-        }
+        if (!this.enabled || !this.cropDetector) return null;
 
         if (isMoving && this.enabled) {
             return this.cropDetector!.detectMoving(inputData);

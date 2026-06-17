@@ -47,8 +47,8 @@ export function refineWithMorphology({
 
             for (let dy = -searchDist; dy <= searchDist; dy += 2) {
                 for (let dx = -searchDist; dx <= searchDist; dx += 2) {
-                    const nx = Math.floor(sx + dx);
-                    const ny = Math.floor(sy + dy);
+                    const nx = Math.max(1, Math.min(width - 2, Math.floor(sx + dx)));
+                    const ny = Math.max(1, Math.min(height - 2, Math.floor(sy + dy)));
 
                     const idx = ny * width + nx;
                     // Sobel-like gradient magnitude

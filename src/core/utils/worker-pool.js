@@ -5,6 +5,7 @@ export class WorkerPool {
         this.poolSize = poolSize;
         this.WorkerClass = WorkerClass;
         this.workers = [];
+        this.allWorkers = new Set();
         this.queue = [];
         this.activeWorkers = 0;
     }
@@ -25,6 +26,7 @@ export class WorkerPool {
     _createWorker() {
         this.activeWorkers++;
         const worker = new this.WorkerClass(this.workerPath);
+        this.allWorkers.add(worker);
         return worker;
     }
 
@@ -58,12 +60,12 @@ export class WorkerPool {
         };
 
         const cleanup = () => {
-            worker.removeListener('message', onMessage);
-            worker.removeListener('error', onError);
+            worker.removeEventListener('message', onMessage);
+            worker.removeEventListener('error', onError);
         };
 
-        worker.on('message', onMessage);
-        worker.on('error', onError);
+        worker.addEventListener('message', onMessage);
+        worker.addEventListener('error', onError);
 
         // Create a copy of taskData without functions for the worker
         const serializableData = {};
@@ -86,8 +88,9 @@ export class WorkerPool {
     }
 
     async destroy() {
-        await Promise.all(this.workers.map(w => w.terminate()));
+        await Promise.all([...this.allWorkers].map(w => w.terminate()));
         this.workers = [];
+        this.allWorkers.clear();
         this.activeWorkers = 0;
     }
 }

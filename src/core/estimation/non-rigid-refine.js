@@ -67,9 +67,9 @@ export function projectMesh(mesh, homography, width, height) {
     const projected = new Float32Array(numVertices * 2);
 
     const h = homography;
-    const h00 = h[0][0], h01 = h[0][1], h02 = h[0][3];
-    const h10 = h[1][0], h11 = h[1][1], h12 = h[1][3];
-    const h20 = h[2][0], h21 = h[2][1], h22 = h[2][3];
+    const h00 = h[0][0], h01 = h[0][1], h02 = h[0][2];
+    const h10 = h[1][0], h11 = h[1][1], h12 = h[1][2];
+    const h20 = h[2][0], h21 = h[2][1], h22 = h[2][2];
 
     for (let i = 0; i < numVertices; i++) {
         const x = px[i];

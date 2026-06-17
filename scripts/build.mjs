@@ -10,7 +10,7 @@ async function build() {
 
     // 1. Run TSC to generate type definitions
     console.log('📊 Generating type definitions (tsc)...');
-    execSync('npx tsc', { stdio: 'inherit' });
+    execSync('bunx tsc', { stdio: 'inherit' });
 
     // 2. Define external dependencies
     const externals = [
@@ -90,7 +90,12 @@ async function build() {
     console.log(`   ✨ Removed ${removedJs} redundant JS files.`);
     console.log(`   ✨ Minified ${minifiedDts} type definition files.`);
 
-    const finalSize = execSync(`du -sh ${DIST_DIR}`).toString().trim();
+    let finalSize;
+    try {
+        finalSize = execSync(`du -sh ${DIST_DIR}`).toString().trim();
+    } catch {
+        finalSize = '(size unavailable on Windows)';
+    }
     console.log(`\n✅ Build complete! Final size: ${finalSize}`);
 }
 

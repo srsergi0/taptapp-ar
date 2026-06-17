@@ -144,6 +144,7 @@ const _checkHeuristics = ({ H, testPoints, keyframe }) => {
 };
 
 const _normalizeHomography = ({ inH }) => {
+  if (inH[8] === 0 || !isFinite(inH[8])) return null;
   const oneOver = 1.0 / inH[8];
 
   const H = [];

@@ -1,5 +1,5 @@
-import { describe, it } from 'vitest';
-import { writeFileSync, readdirSync } from 'fs';
+import { describe, it, expect } from 'vitest';
+import { writeFileSync, readdirSync, mkdirSync } from 'fs';
 import { Jimp } from 'jimp';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -52,6 +52,7 @@ describe('MEGA Data Generation', () => {
             }
         }
 
+        expect(embeddings.length).toBeGreaterThan(0);
         console.log('Phase 2: Computing 10.000 comparisons...');
         const n = embeddings.length;
         const matrix = Array.from({ length: n }, () => new Array(n));
@@ -84,6 +85,7 @@ describe('MEGA Data Generation', () => {
             }
         };
 
+        mkdirSync(dirname(outputPath), { recursive: true });
         writeFileSync(outputPath, JSON.stringify(data, null, 2));
         console.log(`✓ Data saved to ${outputPath}`);
     }, 60000); // 60s timeout for 100 images

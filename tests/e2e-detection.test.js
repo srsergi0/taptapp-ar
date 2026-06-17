@@ -61,6 +61,7 @@ describe('End-to-End Detection (Protocol V9 - LSH)', () => {
         // Inliers should be high for the same image (usually > 100 for a well-featured image)
         // Protocol V9 with 32-bit HDC should maintain high inlier count
         expect(result.screenCoords).toBeDefined();
+        expect(result.worldCoords).toBeDefined();
         if (result.screenCoords && result.worldCoords) {
             expect(result.screenCoords.length).toBeGreaterThanOrEqual(50);
 

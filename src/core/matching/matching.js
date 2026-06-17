@@ -90,6 +90,7 @@ const match = ({ keyframe, querypoints: rawQuerypoints, querywidth, queryheight,
         // Compact mode: compare 32-bit XOR folded descriptors
         d = popcount32(cDesc[idx] ^ qDescCompact);
       } else {
+        if (!qDesc || qDesc.length < descSize) continue;
         d = hammingCompute({ v1: cDesc, v1Offset: idx * descSize, v2: qDesc });
       }
 
@@ -171,6 +172,7 @@ const match = ({ keyframe, querypoints: rawQuerypoints, querywidth, queryheight,
 
 
   const HInv = matrixInverse33(H, 0.00001);
+  if (!HInv) return { debugExtra };
   const dThreshold2 = 100;
   const matches2 = [];
 
@@ -215,6 +217,7 @@ const match = ({ keyframe, querypoints: rawQuerypoints, querywidth, queryheight,
       } else if (isCompact) {
         d = popcount32(cd[k] ^ qDescCompact);
       } else {
+        if (!qDesc || qDesc.length < descSize) continue;
         d = hammingCompute({ v1: cd, v1Offset: k * descSize, v2: qDesc });
       }
 

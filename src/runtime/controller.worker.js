@@ -117,6 +117,6 @@ onmessage = (msg) => {
       break;
 
     default:
-      throw new Error(`Invalid message type '${data.type}'`);
+      postMessage({ type: "error", error: `Invalid message type '${data.type}'` });
   }
 };

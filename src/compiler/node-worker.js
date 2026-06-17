@@ -15,8 +15,6 @@ if (!parentPort) {
     throw new Error('This file must be run as a worker thread.');
 }
 
-const mortonCache = new Int32Array(2048); // Cache for sorting stability
-
 function sortPoints(points) {
     if (points.length <= 1) return points;
 
@@ -142,6 +140,12 @@ parentPort.on('message', async (msg) => {
             parentPort.postMessage({ type: 'progress', percent: 10 });
 
             const { featurePoints, pyramid } = detector.detect(targetImage.data);
+
+            if (!pyramid || pyramid.length === 0) {
+                postMessage({ type: "error", error: "Detector returned no pyramid data" });
+                return;
+            }
+
             parentPort.postMessage({ type: 'progress', percent: 40 });
 
             // 2. Extract Tracking Data using the ALREADY BLURRED pyramid

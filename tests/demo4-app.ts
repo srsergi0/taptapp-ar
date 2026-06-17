@@ -406,7 +406,7 @@ function handleARUpdate(data: any, texts: string[]) {
             drawTrackingPoints(screenCoords, scaleX, scaleY);
 
             // Persistent detection check for this target (TTS)
-            if (targetDetectionTimes[targetIndex] === null) {
+            if (targetDetectionTimes[targetIndex] === undefined) {
                 targetDetectionTimes[targetIndex] = now;
                 targetLastSpokenText[targetIndex] = texts[targetIndex];
             }
@@ -423,6 +423,7 @@ function handleARUpdate(data: any, texts: string[]) {
                 const textToSpeak = texts[targetIndex];
                 console.log(`[Demo4] Triggering TTS for target ${targetIndex}: "${textToSpeak}"`);
                 triggerTTS(textToSpeak);
+                targetDetectionTimes[targetIndex] = undefined;
 
                 // Show message (overlay)
                 detectedMsg.textContent = textToSpeak;

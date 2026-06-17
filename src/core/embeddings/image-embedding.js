@@ -134,7 +134,7 @@ export class ImageEmbedder {
         const hypervectors = [];
 
         for (const feature of sortedFeatures) {
-            if (!feature.descriptors || feature.descriptors.length < 2) continue;
+            if (!feature.descriptors || (feature.descriptors instanceof Uint32Array ? feature.descriptors.length < 2 : feature.descriptors.length < 8)) continue;
 
             // Convertir descriptors a Uint32Array si es necesario
             const desc = feature.descriptors instanceof Uint32Array
@@ -293,7 +293,7 @@ export class ImageEmbedder {
 
         if (targetWords >= HDC_WORDS) {
             // Si el target es mayor o igual, retornar el HV completo (truncado si es necesario)
-            return new Uint32Array(hv.buffer, 0, targetWords);
+            return new Uint32Array(hv);
         }
 
         // Comprimir usando XOR folding + hash
@@ -376,7 +376,7 @@ export class ImageEmbedding {
      * @returns {Uint8Array}
      */
     toBytes() {
-        return new Uint8Array(this.vector.buffer);
+        return new Uint8Array(this.vector.buffer, this.vector.byteOffset, this.vector.byteLength);
     }
 
     /**
@@ -385,7 +385,7 @@ export class ImageEmbedding {
      * @returns {ImageEmbedding}
      */
     static fromBytes(bytes) {
-        const vector = new Uint32Array(bytes.buffer);
+        const vector = new Uint32Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 4);
         return new ImageEmbedding(vector);
     }
 

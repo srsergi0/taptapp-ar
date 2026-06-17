@@ -200,14 +200,12 @@ function startProcessingLoop() {
 
     function processFrame() {
         if (!isTesting) return;
+        controller.processVideo(arCanvas);
         drawVideoToCanvas(arCtx, video, WIDTH, HEIGHT);
         requestAnimationFrame(processFrame);
     }
 
-    if (controller) {
-        controller.processVideo(arCanvas);
-        processFrame();
-    }
+    if (controller) processFrame();
 }
 
 btnReset.onclick = () => {
@@ -251,6 +249,9 @@ function handleARUpdate(data: any, markerW: number, markerH: number) {
             // Persistent detection check
             const text = ttsInput.value;
             if (lastDetectedTime === null) {
+                lastDetectedTime = Date.now();
+                currentDetectedText = text;
+            } else if (text !== currentDetectedText) {
                 lastDetectedTime = Date.now();
                 currentDetectedText = text;
             }

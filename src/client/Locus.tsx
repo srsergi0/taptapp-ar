@@ -228,6 +228,7 @@ const DebugOverlay: React.FC<{ detections: LocusDetection[] }> = ({ detections }
  * Calculates a homography matrix to map a 100x100 square to the 4 screen corners.
  */
 function solveHomographyFromPoints(pts: { x: number; y: number }[], container: HTMLElement) {
+    if (!pts || pts.length < 4) return [1, 0, 0, 0, 1, 0, 0, 0, 1];
     const rect = container.getBoundingClientRect();
     const w = rect.width;
     const h = rect.height;

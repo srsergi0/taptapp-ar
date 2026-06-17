@@ -24,8 +24,8 @@ export function useLocus(targets: LocusTarget[], config: LocusConfig = {}) {
     const requestRef = useRef<number>();
     const isRunningRef = useRef(false);
 
-    // Merge config
-    const fullConfig = { ...DEFAULT_CONFIG, ...config };
+    const fullConfigRef = useRef({ ...DEFAULT_CONFIG, ...config });
+    fullConfigRef.current = { ...DEFAULT_CONFIG, ...config };
 
     const stop = useCallback(() => {
         isRunningRef.current = false;
@@ -53,7 +53,7 @@ export function useLocus(targets: LocusTarget[], config: LocusConfig = {}) {
             // 1. Start Camera
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: {
-                    facingMode: fullConfig.facingMode,
+                    facingMode: fullConfigRef.current.facingMode,
                     width: { ideal: 1280 },
                     height: { ideal: 720 }
                 }
@@ -67,8 +67,8 @@ export function useLocus(targets: LocusTarget[], config: LocusConfig = {}) {
             if (!canvasRef.current) {
                 canvasRef.current = document.createElement('canvas');
             }
-            canvasRef.current.width = fullConfig.width;
-            canvasRef.current.height = fullConfig.height;
+            canvasRef.current.width = fullConfigRef.current.width;
+            canvasRef.current.height = fullConfigRef.current.height;
             const ctx = canvasRef.current.getContext('2d', { willReadFrequently: true });
             if (!ctx) throw new Error('Could not create canvas context');
 
@@ -76,7 +76,7 @@ export function useLocus(targets: LocusTarget[], config: LocusConfig = {}) {
             setState('compiling');
             const compiler = new OfflineCompiler();
             const imagesToCompile = await Promise.all(targets.map(async (t) => {
-                const imageData = await getImageData(t.image, fullConfig.width, fullConfig.height);
+                const imageData = await getImageData(t.image, fullConfigRef.current.width, fullConfigRef.current.height);
                 return {
                     data: new Uint8Array(imageData.data.buffer),
                     width: imageData.width,
@@ -95,11 +95,11 @@ export function useLocus(targets: LocusTarget[], config: LocusConfig = {}) {
             const activeDetections: Map<number, LocusDetection> = new Map();
 
             controllerRef.current = new BioInspiredController({
-                inputWidth: fullConfig.width,
-                inputHeight: fullConfig.height,
-                debugMode: fullConfig.debugMode,
-                maxTrack: fullConfig.maxTrack,
-                bioInspired: { enabled: fullConfig.bioInspired },
+                inputWidth: fullConfigRef.current.width,
+                inputHeight: fullConfigRef.current.height,
+                debugMode: fullConfigRef.current.debugMode,
+                maxTrack: fullConfigRef.current.maxTrack,
+                bioInspired: { enabled: fullConfigRef.current.bioInspired },
                 onUpdate: (data) => {
                     if (data.type === 'updateMatrix') {
                         const { targetIndex, worldMatrix, screenCoords } = data;
@@ -131,7 +131,7 @@ export function useLocus(targets: LocusTarget[], config: LocusConfig = {}) {
                 if (!isRunningRef.current || !controllerRef.current || !canvasRef.current) return;
 
                 // Draw video to processing canvas (Parity with demo)
-                drawVideoToCanvas(ctx!, videoElement, fullConfig.width, fullConfig.height);
+                drawVideoToCanvas(ctx!, videoElement, fullConfigRef.current.width, fullConfigRef.current.height);
 
                 // Process frame
                 controllerRef.current.processVideo(canvasRef.current);
@@ -147,7 +147,7 @@ export function useLocus(targets: LocusTarget[], config: LocusConfig = {}) {
             setState('error');
             stop();
         }
-    }, [targets, fullConfig, state, stop]);
+    }, [targets, stop]);
 
     useEffect(() => {
         return () => {

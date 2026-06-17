@@ -181,7 +181,7 @@ class FovealAttention {
 
         for (let sy = 0; sy < scaledDiam; sy++) {
             const y = cy - r + Math.floor(sy / res);
-            if (y < 0 || y >= this.height) continue;
+            if (y < 0 || y >= this.height) { idx += scaledDiam; continue; }
             const rowStart = y * this.width;
 
             for (let sx = 0; sx < scaledDiam; sx++) {

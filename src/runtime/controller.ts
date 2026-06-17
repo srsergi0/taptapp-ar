@@ -109,13 +109,6 @@ class Controller {
             maxFeaturesPerBucket: AR_CONFIG.MAX_FEATURES_PER_BUCKET
         });
 
-        this.featureManager.init({
-            inputWidth: this.inputWidth,
-            inputHeight: this.inputHeight,
-            projectionTransform: [], // Will be set below
-            debugMode: this.debugMode
-        });
-
         const near = AR_CONFIG.DEFAULT_NEAR;
         const far = AR_CONFIG.DEFAULT_FAR;
         const fovy = (AR_CONFIG.DEFAULT_FOVY * Math.PI) / 180;
@@ -238,7 +231,7 @@ class Controller {
     dummyRun(input: any) {
         const inputData = this.inputLoader.loadInput(input);
         this.fullDetector?.detect(inputData);
-        this.tracker!.dummyRun(inputData);
+        if (this.tracker) this.tracker.dummyRun(inputData);
     }
 
     getProjectionMatrix() {
@@ -296,7 +289,9 @@ class Controller {
         if (!state.lastScreenCoords) state.lastScreenCoords = [];
 
         if (!state.pointStabilities[octaveIndex]) {
-            const numPoints = (this.tracker as any).prebuiltData[targetIndex][octaveIndex].px.length;
+            const octaveData = (this.tracker as any)?.prebuiltData?.[targetIndex]?.[octaveIndex];
+            if (!octaveData) return { modelViewTransform: null, screenCoords: [], worldCoords: [], reliabilities: [], debugExtra: {} };
+            const numPoints = octaveData.px.length;
             state.pointStabilities[octaveIndex] = new Float32Array(numPoints).fill(0);
             state.lastScreenCoords[octaveIndex] = new Array(numPoints).fill(null);
         }
@@ -321,6 +316,7 @@ class Controller {
         const finalReliabilities: number[] = [];
         const finalStabilities: number[] = [];
         const finalWorldCoords: any[] = [];
+        const trackedGlobalIndices: number[] = [];
 
         for (let i = 0; i < stabilities.length; i++) {
             if (stabilities[i] > 0) {
@@ -336,6 +332,7 @@ class Controller {
                     const idxInResult = indices.indexOf(i);
                     finalReliabilities.push(reliabilities[idxInResult]);
                     finalWorldCoords.push(worldCoords[idxInResult]);
+                    trackedGlobalIndices.push(i);
                 } else {
                     finalReliabilities.push(0); // Hibernating points have 0 reliability
                 }
@@ -360,14 +357,8 @@ class Controller {
 
         const modelViewTransform = await this._workerTrackUpdate(lastModelViewTransform, {
             worldCoords: finalWorldCoords,
-            screenCoords: finalWorldCoords.map((_, i) => {
-                const globalIdx = indices[i];
-                return lastCoords[globalIdx];
-            }),
-            stabilities: finalWorldCoords.map((_, i) => {
-                const globalIdx = indices[i];
-                return stabilities[globalIdx];
-            }),
+            screenCoords: trackedGlobalIndices.map(globalIdx => lastCoords[globalIdx]),
+            stabilities: trackedGlobalIndices.map(globalIdx => stabilities[globalIdx]),
             deformedMesh
         });
 
@@ -460,7 +451,9 @@ class Controller {
 
                     // Always notify update if we have points or if visibility changed
                     if (trackingState.showing || (trackingState.screenCoords && trackingState.screenCoords.length > 0) || (wasShowing && !trackingState.showing)) {
-                        const worldMatrix = trackingState.showing ? this._glModelViewMatrix(trackingState.currentModelViewTransform, i) : null;
+                        const worldMatrix = trackingState.showing && trackingState.currentModelViewTransform
+                            ? this._glModelViewMatrix(trackingState.currentModelViewTransform, i)
+                            : null;
 
                         let finalMatrix = null;
 

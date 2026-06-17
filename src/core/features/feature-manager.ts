@@ -41,7 +41,7 @@ export class FeatureManager {
         let show = isTracking;
         for (const feature of this.features) {
             if (feature.enabled && feature.shouldShow) {
-                show = feature.shouldShow(targetIndex, isTracking);
+                show = feature.shouldShow(targetIndex, show);
             }
         }
         return show;

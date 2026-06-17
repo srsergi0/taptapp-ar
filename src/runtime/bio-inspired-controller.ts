@@ -65,6 +65,7 @@ class BioInspiredController extends Controller {
     private bioEnabled: boolean = true;
     private bioMetricsInterval: number | null = null;
     private lastBioResult: any = null;
+    private loopIdCounter: number = 0;
 
     constructor(options: BioInspiredControllerOptions) {
         super(options);
@@ -107,6 +108,7 @@ class BioInspiredController extends Controller {
 
         if (this.processingVideo) return;
         this.processingVideo = true;
+        const currentLoopId = ++this.loopIdCounter;
 
         // Reset tracking states
         this.trackingStates = [];
@@ -121,7 +123,8 @@ class BioInspiredController extends Controller {
         }
 
         const startProcessing = async () => {
-            while (this.processingVideo) {
+            while (true) {
+                if (!this.processingVideo || currentLoopId !== this.loopIdCounter) break;
                 const inputData = this.inputLoader.loadInput(input);
 
                 // Get current tracking states for bio engine

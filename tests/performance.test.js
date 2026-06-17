@@ -76,7 +76,7 @@ describe('Compiler Performance Benchmark', () => {
         });
 
         // Load the exported buffer
-        const loadResult = controller.addImageTargetsFromBuffer(exportedData);
+        const loadResult = await controller.addImageTargetsFromBuffer(exportedData);
         expect(loadResult).toBeDefined();
 
         // Prepare input for controller (it expects specific format or Uint8Array)

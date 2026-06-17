@@ -158,8 +158,8 @@ class SaccadicController {
 
         // Extract center from world matrix
         const matrix = trackingState.worldMatrix;
-        const cx = matrix[12] || this.width / 2;
-        const cy = matrix[13] || this.height / 2;
+        const cx = matrix[12] ?? this.width / 2;
+        const cy = matrix[13] ?? this.height / 2;
 
         // Apply velocity-based prediction
         if (this.velocityHistory.length >= 2) {
@@ -295,8 +295,15 @@ class SaccadicController {
      * Update configuration
      */
     configure(config) {
+        const oldWidth = this.width;
+        const oldHeight = this.height;
         this.config = { ...this.config, ...config };
+        if (config.width !== undefined) this.width = config.width;
+        if (config.height !== undefined) this.height = config.height;
         this.inhibitionRadius = Math.min(this.width, this.height) * 0.1;
+        if (this.width !== oldWidth || this.height !== oldHeight) {
+            this.gridCells = this._buildCoverageGrid(3, 3);
+        }
     }
 }
 
