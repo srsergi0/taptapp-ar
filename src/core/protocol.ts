@@ -66,8 +66,9 @@ export function columnarize(points: any[], tree: any, width: number, height: num
     const y = new Uint16Array(count);
     const angle = new Int16Array(count);
     const scale = new Uint8Array(count);
-    const sx = new Float32Array(count);
-    const sy = new Float32Array(count);
+
+    // ⚡ sx/sy eliminados del .taar — se reconstruyen en decodeTaar() a partir
+    // de x, y, s con la misma fórmula. Ahorra ~8 bytes/feature × N features.
 
     let descriptors: any;
     if (useHDC) {
@@ -81,14 +82,9 @@ export function columnarize(points: any[], tree: any, width: number, height: num
         y[i] = Math.round((points[i].y / height) * 65535);
         angle[i] = Math.round((points[i].angle / Math.PI) * 32767);
         scale[i] = Math.round(Math.log2(points[i].scale || 1));
-        sx[i] = points[i].sx || 0;
-        sy[i] = points[i].sy || 0;
 
         if (points[i].descriptors && points[i].descriptors.length >= 2) {
             if (useHDC) {
-                // For HDC, we'd normally call project + compress here
-                // But protocol.ts should be agnostic of the generator.
-                // We'll assume points[i].hdcSignature exists if pre-calculated
                 descriptors[i] = points[i].hdcSignature || 0;
             } else {
                 descriptors[i * 2] = points[i].descriptors[0];
@@ -103,9 +99,7 @@ export function columnarize(points: any[], tree: any, width: number, height: num
         a: angle,
         s: scale,
         d: descriptors,
-        sx,
-        sy,
-        hdc: useHDC ? 1 : 0, // HDC Flag (renamed from h to avoid collision with height)
+        hdc: useHDC ? 1 : 0,
         t: compactTree(tree.rootNode),
     };
 }
@@ -120,8 +114,9 @@ export function columnarizeCompact(points: any[], tree: any, width: number, heig
     const y = new Uint16Array(count);
     const angle = new Int16Array(count);
     const scale = new Uint8Array(count);
-    const sx = new Float32Array(count);
-    const sy = new Float32Array(count);
+
+    // ⚡ sx/sy eliminados del .taar — se reconstruyen en decodeTaar()
+
     const descriptors = new Uint32Array(count); // 32-bit compact descriptors
 
     for (let i = 0; i < count; i++) {
@@ -129,12 +124,9 @@ export function columnarizeCompact(points: any[], tree: any, width: number, heig
         y[i] = Math.round((points[i].y / height) * 65535);
         angle[i] = Math.round((points[i].angle / Math.PI) * 32767);
         scale[i] = Math.round(Math.log2(points[i].scale || 1));
-        sx[i] = points[i].sx || 0;
-        sy[i] = points[i].sy || 0;
 
         if (points[i].descriptors && points[i].descriptors.length >= 2) {
             // XOR folding: Combine two 32-bit values into one 32-bit value
-            // This preserves discriminative power while halving storage
             descriptors[i] = (points[i].descriptors[0] ^ points[i].descriptors[1]) >>> 0;
         }
     }
@@ -145,9 +137,7 @@ export function columnarizeCompact(points: any[], tree: any, width: number, heig
         a: angle,
         s: scale,
         d: descriptors,
-        sx,
-        sy,
-        compact: 1, // Flag to indicate compact 32-bit descriptors
+        compact: 1,
         t: compactTree(tree.rootNode),
     };
 }
@@ -280,11 +270,25 @@ export function decodeTaar(buffer: ArrayBuffer | Uint8Array) {
                     }
                 }
 
-                if (col.sx) {
+                // ⚡ sx/sy: si el .taar legacy los tiene, usarlos directamente.
+                // Si el .taar nuevo no los tiene, reconstruir desde x, y, s
+                // con la misma fórmula de approximateSpectralCoords — resultado idéntico.
+                if (col.sx && col.sy) {
                     col.sx = normalizeBuffer(col.sx, Float32Array);
-                }
-                if (col.sy) {
                     col.sy = normalizeBuffer(col.sy, Float32Array);
+                } else {
+                    const sxArr = new Float32Array(count);
+                    const syArr = new Float32Array(count);
+                    const fw = kf.w, fh = kf.h;
+                    for (let k = 0; k < count; k++) {
+                        const nx = (col.x[k] / fw) * 2 - 1;
+                        const ny = (col.y[k] / fh) * 2 - 1;
+                        const scaleNorm = Math.log2(col.s[k] || 1) / 10;
+                        sxArr[k] = nx + scaleNorm * 0.1;
+                        syArr[k] = ny + scaleNorm * 0.1;
+                    }
+                    col.sx = sxArr;
+                    col.sy = syArr;
                 }
             }
         }

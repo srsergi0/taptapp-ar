@@ -59,7 +59,7 @@
         "LICENSE"
     ],
     "scripts": {
-        "build": "node scripts/build.mjs",
+        "build": "bun scripts/build.mjs",
         "build:dev": "tsc",
         "prepublishOnly": "bun run build",
         "test": "vitest",
@@ -99,6 +99,7 @@
     ],
     "dependencies": {
         "@msgpack/msgpack": "^3.0.0-beta2",
+        "fflate": "^0.8.2",
         "ml-matrix": "^6.10.4",
         "tinyqueue": "^2.0.3"
     },

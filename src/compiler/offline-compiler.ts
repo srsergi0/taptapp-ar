@@ -19,7 +19,7 @@ import { downsampleBilinear } from "../core/utils/images.js";
 import * as protocol from "../core/protocol.js";
 import { triangulate, getEdges } from "../core/utils/delaunay.js";
 import { AR_CONFIG } from "../core/constants.js";
-import { deflateSync, inflateSync } from "zlib";
+import { zlibSync as deflateSync, unzlibSync as inflateSync } from "fflate";
 
 
 // ---------------------------------------------------------------------------
@@ -146,7 +146,7 @@ export class OfflineCompiler {
 
             const octaves = [0, 1, 2, 3, 4, 5];
             const ps: any[] = [];
-            const featuresPerOctave = 300;
+            const featuresPerOctave = AR_CONFIG.FEATURES_PER_OCTAVE || 150;
 
             for (const oct of octaves) {
                 const octScale = Math.pow(2, oct);
@@ -311,9 +311,10 @@ export class OfflineCompiler {
         }
 
         // Asegurarse de que el buffer esté alineado correctamente para decodeTaar
-        const alignedBuffer = data.buffer.slice(
+        const alignedBuffer = new Uint8Array(
+            data.buffer,
             data.byteOffset,
-            data.byteOffset + data.byteLength
+            data.byteLength
         );
         const result = protocol.decodeTaar(alignedBuffer);
 

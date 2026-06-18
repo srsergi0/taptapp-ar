@@ -92,9 +92,24 @@ async function build() {
 
     let finalSize;
     try {
-        finalSize = execSync(`du -sh ${DIST_DIR}`).toString().trim();
+        const { execSync: _exec } = await import('child_process');
+        let totalBytes = 0;
+        const _getFiles = (dir) => {
+            const list = readdirSync(dir);
+            for (const file of list) {
+                const fullPath = resolve(dir, file);
+                if (statSync(fullPath).isDirectory()) {
+                    _getFiles(fullPath);
+                } else {
+                    totalBytes += statSync(fullPath).size;
+                }
+            }
+        };
+        _getFiles(DIST_DIR);
+        const kb = (totalBytes / 1024).toFixed(1);
+        finalSize = `${kb} KB`;
     } catch {
-        finalSize = '(size unavailable on Windows)';
+        finalSize = '(size unavailable)';
     }
     console.log(`\n✅ Build complete! Final size: ${finalSize}`);
 }

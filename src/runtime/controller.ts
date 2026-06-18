@@ -167,16 +167,43 @@ class Controller {
                 return response.arrayBuffer();
             })
         );
-        return this.addImageTargetsFromBuffers(buffers);
+        return await this.addImageTargetsFromBuffers(buffers);
     }
 
-    addImageTargetsFromBuffers(buffers: ArrayBuffer[]) {
+    async addImageTargetsFromBuffers(buffers: ArrayBuffer[]) {
         const allTrackingData: any[] = [];
         const allMatchingData: any[] = [];
         const allDimensions: any[] = [];
 
+        const MAGIC = new Uint8Array([0x54, 0x41, 0x52, 0x5A]); // 'TARZ'
+
         for (const buffer of buffers) {
-            const result = protocol.decodeTaar(buffer);
+            let data = new Uint8Array(buffer);
+
+            // ⚡ Detectar y descomprimir formato comprimido TARZ de forma transparente
+            if (
+                data.length >= 4 &&
+                data[0] === MAGIC[0] &&
+                data[1] === MAGIC[1] &&
+                data[2] === MAGIC[2] &&
+                data[3] === MAGIC[3]
+            ) {
+                // Descomprimir de forma asíncrona usando DecompressionStream nativo
+                const ds = new DecompressionStream('deflate');
+                const writer = ds.writable.getWriter();
+                writer.write(data.subarray(MAGIC.length));
+                writer.close();
+                const decompressedBuffer = await new Response(ds.readable).arrayBuffer();
+                data = new Uint8Array(decompressedBuffer);
+            }
+
+            const alignedBuffer = new Uint8Array(
+                data.buffer,
+                data.byteOffset,
+                data.byteLength
+            );
+
+            const result = protocol.decodeTaar(alignedBuffer);
             const dataList = result.dataList || [];
 
             for (const item of dataList) {
@@ -216,8 +243,8 @@ class Controller {
         return { dimensions: allDimensions, matchingDataList: allMatchingData, trackingDataList: allTrackingData };
     }
 
-    addImageTargetsFromBuffer(buffer: ArrayBuffer) {
-        return this.addImageTargetsFromBuffers([buffer]);
+    async addImageTargetsFromBuffer(buffer: ArrayBuffer) {
+        return await this.addImageTargetsFromBuffers([buffer]);
     }
 
     dispose() {
