@@ -28,11 +28,11 @@
 
 ## 📖 Table of Contents
 - [🛠 Installation](#-installation)
-- [⚡ Quick Start (Copy-Paste Ready)](#-quick-start)
+- [⚡ Quick Start (3 Formas de Uso)](#-quick-start)
   - [1. React Component (`<Locus />` + `<LocusTransform />`)](#1-react-component-locus--locustransform-)
-  - [2. Full Control Hook (`useLocus`)](#2-full-control-hook-uselocus)
-  - [3. Vanilla JavaScript / HTML (`createTracker`)](#3-vanilla-javascript--html-createtracker)
-  - [4. Three.js 3D WebGL Scene](#4-threejs-3d-webgl-scene)
+  - [2. React Hook (`useLocus`)](#2-react-hook-uselocus)
+  - [3. Three.js Native 3D Scene](#3-threejs-native-3d-scene)
+  - [4. Vanilla JavaScript / HTML (`createTracker`)](#4-vanilla-javascript--html-createtracker)
 - [🖼️ Image Compiler API](#️-image-compiler-api)
 - [📊 Performance Benchmarks](#-performance-benchmarks)
 - [🔍 Visual Search & Embeddings](#-visual-search--embeddings)
@@ -59,7 +59,7 @@ pnpm add locus-ar
 
 ### 1. React Component (`<Locus />` + `<LocusTransform />`)
 
-The simplest and most elegant way to embed AR in a React app with automatic 3D homography:
+The simplest and most elegant declarative JSX syntax. Positions any UI card or 3D element directly over the physical marker with exact 3D homography:
 
 ```tsx
 import React from 'react';
@@ -78,22 +78,30 @@ export const MyARApp = () => {
             <LocusTransform
               key={det.targetIndex}
               matrix={det.worldMatrix}
+              modelViewTransform={det.modelViewTransform}
               screenCoords={det.screenCoords}
+              targetIndex={det.targetIndex}
             >
               <div style={{
-                width: '100px',
-                height: '100px',
+                width: '100%',
+                height: '100%',
+                boxSizing: 'border-box',
                 background: 'rgba(15, 23, 42, 0.9)',
-                border: '2px solid #6366f1',
-                borderRadius: '12px',
-                padding: '12px',
+                border: '2px solid #a855f7',
+                borderRadius: '16px',
+                padding: '16px',
                 color: 'white',
-                backdropFilter: 'blur(8px)',
-                boxShadow: '0 8px 32px rgba(99, 102, 241, 0.35)'
+                backdropFilter: 'blur(12px)',
+                boxShadow: '0 12px 36px rgba(168, 85, 247, 0.35)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between'
               }}>
-                <h3>🎯 Marcador Detectado</h3>
+                <h3>🔮 Marcador Fijado</h3>
                 <p>Inliers: {det.inliersCount}</p>
-                <p>Estabilidad: {((det.stability || 1) * 100).toFixed(0)}%</p>
+                <button style={{ padding: '8px 12px', background: '#a855f7', color: '#fff', borderRadius: '8px', border: 'none' }}>
+                  Interactuar
+                </button>
               </div>
             </LocusTransform>
           ))
@@ -106,9 +114,9 @@ export const MyARApp = () => {
 
 ---
 
-### 2. Full Control: Hook `useLocus`
+### 2. React Hook (`useLocus`)
 
-For advanced React developers who need custom Three.js scenes, canvas overlays, or fine-grained pipeline control:
+For developers who need fine-grained control over tracking states, camera streams, and custom render loops:
 
 ```tsx
 import React, { useEffect, useRef, useMemo } from 'react';
@@ -123,7 +131,7 @@ export const CustomAR = () => {
 
   const {
     state,               // 'idle' | 'initializing' | 'compiling' | 'tracking' | 'error'
-    detections,          // Array of LocusDetection
+    detections,          // Array of LocusDetection (worldMatrix, screenCoords, inliersCount...)
     compilationProgress, // 0 - 100%
     error,               // Error string if any
     start,               // start(videoElement | canvasElement)
@@ -131,7 +139,8 @@ export const CustomAR = () => {
     getProjectionMatrix  // () => number[] (16 elements for Three.js)
   } = useLocus(targets, {
     width: 1280,
-    height: 720
+    height: 720,
+    bioInspired: true
   });
 
   useEffect(() => {
@@ -142,12 +151,12 @@ export const CustomAR = () => {
   }, [start, stop]);
 
   return (
-    <div>
-      <video ref={videoRef} playsInline autoPlay muted />
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <video ref={videoRef} playsInline autoPlay muted style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
       {state === 'compiling' && <p>Compilando: {compilationProgress}%</p>}
       {detections.map(det => (
-        <div key={det.targetIndex}>
-          Fijado: {det.label} ({det.inliersCount} inliers)
+        <div key={det.targetIndex} style={{ position: 'absolute', top: 20, left: 20, color: '#34d399' }}>
+          🎯 Fijado: {det.label} ({det.inliersCount} inliers)
         </div>
       ))}
     </div>
@@ -157,59 +166,9 @@ export const CustomAR = () => {
 
 ---
 
-### 3. Vanilla JavaScript / HTML (`createTracker`)
+### 3. Three.js Native 3D Scene
 
-Zero-configuration camera tracking with DOM overlays:
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    #ar-container { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
-    #overlay-card {
-      position: absolute;
-      display: none;
-      background: #10b981;
-      color: white;
-      padding: 20px;
-      border-radius: 8px;
-    }
-  </style>
-</head>
-<body>
-  <div id="ar-container">
-    <div id="overlay-card">
-      <h2>🚀 Locus AR Active</h2>
-    </div>
-  </div>
-
-  <script type="module">
-    import { createTracker } from 'locus-ar/client';
-
-    const card = document.getElementById('overlay-card');
-
-    const tracker = await createTracker({
-      target: './assets/card-target.png',
-      container: document.getElementById('ar-container'),
-        onFound: (data) => console.log('Target found!', data),
-        onLost: () => console.log('Target lost'),
-        onUpdate: (data) => {
-          // data.worldMatrix -> 4x4 matrix
-          // data.screenCoords -> 2D points on screen
-        }
-      }
-    });
-  </script>
-</body>
-</html>
-```
-
----
-
-### 3. Three.js 3D WebGL Scene
-
-Render real 3D models and geometry directly over the marker:
+Render real 3D meshes, lights, and materials directly aligned with the physical target:
 
 ```typescript
 import * as THREE from 'three';
@@ -221,7 +180,7 @@ const camera = new THREE.Camera();
 camera.matrixAutoUpdate = false;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(1280, 720, false);
 document.body.appendChild(renderer.domElement);
 
 // 2. Create AR Anchor Group
@@ -261,7 +220,7 @@ const imgBitmap = await createImageBitmap(blob);
 const canvas = document.createElement('canvas');
 canvas.width = imgBitmap.width;
 canvas.height = imgBitmap.height;
-const ctx = canvas.getContext('2d');
+const ctx = canvas.getContext('2d')!;
 ctx.drawImage(imgBitmap, 0, 0);
 const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
@@ -272,11 +231,13 @@ await compiler.compileImageTargets([{
   data: new Uint8Array(imgData.data.buffer)
 }], () => {});
 
-await controller.addImageTargetsFromBuffer(compiler.exportData());
+const buffer = compiler.exportData();
+const cleanBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+await controller.addImageTargetsFromBuffer(cleanBuffer);
 
 // 5. Start Processing Video Stream
 const video = document.createElement('video');
-video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } });
 await video.play();
 controller.processVideo(video);
 
@@ -286,6 +247,60 @@ function animate() {
   requestAnimationFrame(animate);
 }
 animate();
+```
+
+---
+
+### 4. Vanilla JavaScript / HTML (`createTracker`)
+
+Zero-configuration camera tracking for vanilla web pages:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    #ar-container { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+    #overlay-card {
+      position: absolute;
+      display: none;
+      background: #10b981;
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div id="ar-container">
+    <div id="overlay-card">
+      <h2>🚀 Locus AR Active</h2>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createTracker } from 'locus-ar';
+
+    const card = document.getElementById('overlay-card');
+
+    const tracker = await createTracker({
+      targetSrc: './assets/card-target.png',
+      container: document.getElementById('ar-container'),
+      overlay: card,
+      callbacks: {
+        onFound: () => console.log('Target found!'),
+        onLost: () => console.log('Target lost'),
+        onUpdate: (data) => {
+          // data.worldMatrix -> 4x4 matrix
+          // data.screenCoords -> 2D points on screen
+        }
+      }
+    });
+
+    await tracker.startCamera();
+  </script>
+</body>
+</html>
 ```
 
 ---
