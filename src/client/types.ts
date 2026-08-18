@@ -29,8 +29,12 @@ export interface LocusDetection {
     targetIndex: number;
     /** 4x4 matrix representing the target's position and orientation. */
     worldMatrix: number[] | null;
-    /** Screen coordinates of the 4 corners of the detected target. */
+    /** Screen coordinates of the detected feature points. */
     screenCoords: { x: number; y: number }[] | null;
+    /** Number of inlier points matched with consensus */
+    inliersCount?: number;
+    /** Stability confidence score (0-1) */
+    stability?: number;
     /** Metadata label of the target. */
     label?: string;
 }

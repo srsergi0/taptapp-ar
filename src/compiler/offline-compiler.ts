@@ -137,56 +137,62 @@ export class OfflineCompiler {
         const results = [];
         for (let i = 0; i < targetImages.length; i++) {
             const targetImage = targetImages[i];
+            const imageList = buildImageList(targetImage);
+            const keyframes = [];
 
-            const detector = new DetectorLite(targetImage.width, targetImage.height, {
-                useLSH: AR_CONFIG.USE_LSH,
-                maxFeaturesPerBucket: AR_CONFIG.MAX_FEATURES_PER_BUCKET
-            });
-            const { featurePoints: rawPs } = detector.detect(targetImage.data);
+            for (const img of imageList) {
+                const detector = new DetectorLite(img.width, img.height, {
+                    useLSH: AR_CONFIG.USE_LSH,
+                    maxFeaturesPerBucket: AR_CONFIG.MAX_FEATURES_PER_BUCKET
+                });
+                const { featurePoints: rawPs } = detector.detect(img.data);
 
-            const octaves = [0, 1, 2, 3, 4, 5];
-            const ps: any[] = [];
-            const featuresPerOctave = AR_CONFIG.FEATURES_PER_OCTAVE || 150;
+                const octaves = [0, 1, 2, 3, 4, 5];
+                const ps: any[] = [];
+                const featuresPerOctave = AR_CONFIG.FEATURES_PER_OCTAVE || 150;
 
-            for (const oct of octaves) {
-                const octScale = Math.pow(2, oct);
-                const octFeatures = rawPs
-                    .filter(p => Math.abs(p.scale - octScale) < 0.1)
-                    .sort((a, b) => (b.score || 0) - (a.score || 0))
-                    .slice(0, featuresPerOctave);
-                ps.push(...octFeatures);
+                for (const oct of octaves) {
+                    const octScale = Math.pow(2, oct);
+                    const octFeatures = rawPs
+                        .filter(p => Math.abs(p.scale - octScale) < 0.1)
+                        .sort((a, b) => (b.score || 0) - (a.score || 0))
+                        .slice(0, featuresPerOctave);
+                    ps.push(...octFeatures);
+                }
+
+                const maximaPoints = ps.filter((p: any) => p.maxima);
+                const minimaPoints = ps.filter((p: any) => !p.maxima);
+
+                if (maximaPoints.length === 0 && minimaPoints.length === 0) continue;
+
+                // ⚡ Coordenadas espectrales O(N)
+                const maxMaps = approximateSpectralCoords(maximaPoints, img.width, img.height);
+                const minMaps = approximateSpectralCoords(minimaPoints, img.width, img.height);
+
+                for (let k = 0; k < maximaPoints.length; k++) {
+                    maximaPoints[k].sx = maxMaps.sx[k];
+                    maximaPoints[k].sy = maxMaps.sy[k];
+                }
+                for (let k = 0; k < minimaPoints.length; k++) {
+                    minimaPoints[k].sx = minMaps.sx[k];
+                    minimaPoints[k].sy = minMaps.sy[k];
+                }
+
+                const maximaPointsCluster = hierarchicalClusteringBuild({ points: maximaPoints });
+                const minimaPointsCluster = hierarchicalClusteringBuild({ points: minimaPoints });
+
+                keyframes.push({
+                    maximaPoints,
+                    minimaPoints,
+                    maximaPointsCluster,
+                    minimaPointsCluster,
+                    width: img.width,
+                    height: img.height,
+                    scale: img.scale,
+                });
             }
 
-            const maximaPoints = ps.filter((p: any) => p.maxima);
-            const minimaPoints = ps.filter((p: any) => !p.maxima);
-
-            // ⚡ Coordenadas espectrales O(N) en lugar de Eigenmaps O(N³)
-            const maxMaps = approximateSpectralCoords(maximaPoints, targetImage.width, targetImage.height);
-            const minMaps = approximateSpectralCoords(minimaPoints, targetImage.width, targetImage.height);
-
-            for (let k = 0; k < maximaPoints.length; k++) {
-                maximaPoints[k].sx = maxMaps.sx[k];
-                maximaPoints[k].sy = maxMaps.sy[k];
-            }
-            for (let k = 0; k < minimaPoints.length; k++) {
-                minimaPoints[k].sx = minMaps.sx[k];
-                minimaPoints[k].sy = minMaps.sy[k];
-            }
-
-            const maximaPointsCluster = hierarchicalClusteringBuild({ points: maximaPoints });
-            const minimaPointsCluster = hierarchicalClusteringBuild({ points: minimaPoints });
-
-            const keyframe = {
-                maximaPoints,
-                minimaPoints,
-                maximaPointsCluster,
-                minimaPointsCluster,
-                width: targetImage.width,
-                height: targetImage.height,
-                scale: 1.0,
-            };
-
-            results.push([keyframe]);
+            results.push(keyframes);
 
             currentPercent += percentPerImage;
             progressCallback(currentPercent);

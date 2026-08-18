@@ -17,7 +17,7 @@ export class TemporalFilterFeature implements ControllerFeature {
     private missTolerance: number;
     private onToggleShowing?: (targetIndex: number, showing: boolean) => void;
 
-    constructor(warmup: number = 2, miss: number = 5, onToggleShowing?: (targetIndex: number, showing: boolean) => void) {
+    constructor(warmup: number = 1, miss: number = 5, onToggleShowing?: (targetIndex: number, showing: boolean) => void) {
         this.warmupTolerance = warmup;
         this.missTolerance = miss;
         this.onToggleShowing = onToggleShowing;

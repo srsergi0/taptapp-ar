@@ -46,26 +46,32 @@ export function useLocus(targets: LocusTarget[], config: LocusConfig = {}) {
         setDetections([]);
     }, []);
 
-    const start = useCallback(async (videoElement: HTMLVideoElement) => {
+    const start = useCallback(async (sourceElement?: HTMLVideoElement | HTMLCanvasElement | HTMLImageElement) => {
         if (state !== 'idle' && state !== 'error') return;
 
-        videoRef.current = videoElement;
         setState('initializing');
         setError(undefined);
 
         try {
-            // 1. Start Camera
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: fullConfigRef.current.facingMode,
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
+            let stream: MediaStream | null = null;
+
+            // 1. Setup Source
+            if (sourceElement instanceof HTMLVideoElement) {
+                videoRef.current = sourceElement;
+                if (!sourceElement.srcObject) {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: fullConfigRef.current.facingMode,
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
+                    });
+                    sourceElement.srcObject = stream;
+                    await new Promise<void>((resolve) => {
+                        sourceElement.onloadedmetadata = () => resolve();
+                    });
                 }
-            });
-            videoElement.srcObject = stream;
-            await new Promise<void>((resolve) => {
-                videoElement.onloadedmetadata = () => resolve();
-            });
+            }
 
             // 2. Prepare Processing Canvas
             if (!canvasRef.current) {
@@ -76,11 +82,11 @@ export function useLocus(targets: LocusTarget[], config: LocusConfig = {}) {
             const ctx = canvasRef.current.getContext('2d', { willReadFrequently: true });
             if (!ctx) throw new Error('Could not create canvas context');
 
-            // 3. Compile Targets
+            // 3. Compile Targets with natural aspect ratio
             setState('compiling');
             const compiler = new OfflineCompiler();
             const imagesToCompile = await Promise.all(targets.map(async (t) => {
-                const imageData = await getImageData(t.image, fullConfigRef.current.width, fullConfigRef.current.height);
+                const imageData = await getTargetImageData(t.image);
                 return {
                     data: new Uint8Array(imageData.data.buffer),
                     width: imageData.width,
@@ -97,48 +103,65 @@ export function useLocus(targets: LocusTarget[], config: LocusConfig = {}) {
 
             // 4. Initialize Controller
             const activeDetections: Map<number, LocusDetection> = new Map();
+            let lastStableDetections: LocusDetection[] = [];
 
             controllerRef.current = new BioInspiredController({
                 inputWidth: fullConfigRef.current.width,
                 inputHeight: fullConfigRef.current.height,
                 debugMode: fullConfigRef.current.debugMode,
                 maxTrack: fullConfigRef.current.maxTrack,
-                bioInspired: { enabled: fullConfigRef.current.bioInspired },
+                bioInspired: {
+                    enabled: fullConfigRef.current.bioInspired,
+                    aggressiveSkipping: false // Disable aggressive skips in hook to keep continuous display
+                },
                 onUpdate: (data) => {
                     if (data.type === 'updateMatrix') {
-                        const { targetIndex, worldMatrix, screenCoords } = data;
-                        if (targetIndex !== undefined && worldMatrix) {
-                            activeDetections.set(targetIndex, {
-                                targetIndex,
-                                worldMatrix,
-                                screenCoords,
-                                label: targets[targetIndex]?.label
-                            });
+                        const { targetIndex, worldMatrix, screenCoords, stabilities } = data;
+                        if (targetIndex !== undefined) {
+                            if (worldMatrix) {
+                                activeDetections.set(targetIndex, {
+                                    targetIndex,
+                                    worldMatrix,
+                                    screenCoords,
+                                    label: targets[targetIndex]?.label,
+                                    inliersCount: screenCoords?.length || 0,
+                                    stability: stabilities?.length ? stabilities.reduce((a: number, b: number) => a + b, 0) / stabilities.length : 1
+                                });
+                            } else {
+                                activeDetections.delete(targetIndex);
+                            }
                         }
                     } else if (data.type === 'processDone') {
-                        setDetections((prev) => {
-                            const next = Array.from(activeDetections.values());
-                            activeDetections.clear();
-                            return next;
-                        });
+                        const next = Array.from(activeDetections.values());
+                        if (next.length > 0) {
+                            lastStableDetections = next;
+                            setDetections(next);
+                        } else if (lastStableDetections.length > 0 && activeDetections.size === 0) {
+                            // Only clear after full loss
+                            setDetections([]);
+                            lastStableDetections = [];
+                        }
                     }
                 }
             });
 
             await controllerRef.current.addImageTargetsFromBuffer(cleanBuffer);
 
-            // 5. Start Loop
+            // 5. Draw initial frame & start controller loop once
+            if (sourceElement) {
+                drawVideoToCanvas(ctx!, sourceElement, fullConfigRef.current.width, fullConfigRef.current.height);
+            }
+            controllerRef.current.processVideo(canvasRef.current);
+
             isRunningRef.current = true;
             setState('tracking');
 
             const loop = () => {
-                if (!isRunningRef.current || !controllerRef.current || !canvasRef.current) return;
+                if (!isRunningRef.current || !canvasRef.current) return;
 
-                // Draw video to processing canvas (Parity with demo)
-                drawVideoToCanvas(ctx!, videoElement, fullConfigRef.current.width, fullConfigRef.current.height);
-
-                // Process frame
-                controllerRef.current.processVideo(canvasRef.current);
+                if (sourceElement) {
+                    drawVideoToCanvas(ctx!, sourceElement, fullConfigRef.current.width, fullConfigRef.current.height);
+                }
 
                 requestRef.current = requestAnimationFrame(loop);
             };
@@ -153,6 +176,10 @@ export function useLocus(targets: LocusTarget[], config: LocusConfig = {}) {
         }
     }, [targets, stop]);
 
+    const getProjectionMatrix = useCallback((): number[] => {
+        return controllerRef.current?.getProjectionMatrix() || [];
+    }, []);
+
     useEffect(() => {
         return () => {
             stop();
@@ -165,12 +192,13 @@ export function useLocus(targets: LocusTarget[], config: LocusConfig = {}) {
         compilationProgress,
         error,
         start,
-        stop
+        stop,
+        getProjectionMatrix
     };
 }
 
 // Helpers
-async function getImageData(image: string | HTMLImageElement | ImageData, w: number, h: number): Promise<ImageData> {
+async function getTargetImageData(image: string | HTMLImageElement | ImageData): Promise<ImageData> {
     if (image instanceof ImageData) return image;
 
     let img: HTMLImageElement;
@@ -192,18 +220,30 @@ async function getImageData(image: string | HTMLImageElement | ImageData, w: num
         }
     }
 
+    const naturalWidth = img.naturalWidth || img.width;
+    const naturalHeight = img.naturalHeight || img.height;
+
     const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
+    canvas.width = naturalWidth;
+    canvas.height = naturalHeight;
     const ctx = canvas.getContext('2d')!;
 
-    drawVideoToCanvas(ctx, img as unknown as HTMLVideoElement, w, h);
-    return ctx.getImageData(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, naturalWidth, naturalHeight);
+    return ctx.getImageData(0, 0, naturalWidth, naturalHeight);
 }
 
-function drawVideoToCanvas(ctx: CanvasRenderingContext2D, element: HTMLVideoElement | HTMLImageElement, targetWidth: number, targetHeight: number) {
-    const elementWidth = (element as HTMLVideoElement).videoWidth || (element as HTMLImageElement).naturalWidth;
-    const elementHeight = (element as HTMLVideoElement).videoHeight || (element as HTMLImageElement).naturalHeight;
+function drawVideoToCanvas(
+    ctx: CanvasRenderingContext2D,
+    element: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement,
+    targetWidth: number,
+    targetHeight: number
+) {
+    const elementWidth = (element as HTMLVideoElement).videoWidth ||
+        (element as HTMLImageElement).naturalWidth ||
+        (element as HTMLCanvasElement).width;
+    const elementHeight = (element as HTMLVideoElement).videoHeight ||
+        (element as HTMLImageElement).naturalHeight ||
+        (element as HTMLCanvasElement).height;
 
     if (!elementWidth || !elementHeight) return;
 

@@ -3,7 +3,7 @@ import { OfflineCompiler } from '../src/compiler/offline-compiler.js';
 import { Matcher } from '../src/core/matching/matcher.js';
 import { DetectorLite } from '../src/core/detector/detector-lite.js';
 import { Estimator } from '../src/core/estimation/estimator.js';
-import { loadTestAsset } from './helpers/test-utils.js';
+import { loadTestAsset, createSyntheticTestImage } from './helpers/test-utils.js';
 
 describe('End-to-End AR Pipeline (Protocol V9 - LSH & HDC)', () => {
     it('should compile target, export/import .taar, and match query with high inlier confidence', async () => {
@@ -61,9 +61,33 @@ describe('End-to-End AR Pipeline (Protocol V9 - LSH & HDC)', () => {
         expect(modelViewTransform[0]).toHaveLength(4);
     });
 
+    it('should correctly match target in real camera scene query (test-query.jpg)', async () => {
+        const target = await loadTestAsset('test-image.png');
+        const queryScene = await loadTestAsset('test-query.jpg');
+
+        const compiler = new OfflineCompiler();
+        await compiler.compileImageTargets([
+            { width: target.width, height: target.height, data: target.data }
+        ], () => {});
+
+        const { dataList } = compiler.importData(compiler.exportData());
+        const matchingData = dataList[0].matchingData;
+
+        const detector = new DetectorLite(queryScene.width, queryScene.height, { useLSH: true, useHDC: true });
+        const { featurePoints } = detector.detect(queryScene.grayscaleData);
+
+        const matcher = new Matcher(queryScene.width, queryScene.height, false);
+        const result = matcher.matchDetection(matchingData, featurePoints);
+
+        // Target must be identified on the monitor screen (Layer index >= 0)
+        expect(result.keyframeIndex).toBeGreaterThanOrEqual(0);
+        expect(result.screenCoords).toBeDefined();
+        expect(result.screenCoords.length).toBeGreaterThanOrEqual(10);
+    });
+
     it('should correctly reject unmatched/unrelated images without false positive matches', async () => {
         const target = await loadTestAsset('test-image.png');
-        const unrelatedQuery = await loadTestAsset('test-query.jpg');
+        const unrelatedQuery = createSyntheticTestImage({ width: 512, height: 512, type: 'checkerboard' });
 
         const compiler = new OfflineCompiler();
         await compiler.compileImageTargets([

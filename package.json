@@ -62,6 +62,7 @@
         "build": "bun scripts/build.mjs",
         "build:dev": "tsc",
         "prepublishOnly": "bun run build",
+        "playground": "vite --port 5173 --open playground/index.html",
         "test": "vitest",
         "test:react": "vite --port 4321 --open tests/reliability-test.html",
         "test:demo3": "bun run build:demo3 && vite --port 4322 --open docs/demo3.html",
