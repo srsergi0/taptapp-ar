@@ -2,6 +2,13 @@ import { existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 
 export default {
+    resolve: {
+        alias: {
+            'locus-ar/client': resolve(__dirname, 'src/client/index.ts'),
+            'locus-ar/compiler': resolve(__dirname, 'src/compiler/offline-compiler.ts'),
+            'locus-ar': resolve(__dirname, 'src/index.ts'),
+        }
+    },
     plugins: [
         {
             name: 'resolve-ts-imports',

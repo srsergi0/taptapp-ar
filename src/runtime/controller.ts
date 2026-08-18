@@ -53,6 +53,7 @@ class Controller {
     maxTrack: number = 1;
     inputLoader: InputLoader;
     markerDimensions: any[] | null = null;
+    allDimensions: number[][] = [];
     onUpdate: ((data: any) => void) | null;
     debugMode: boolean;
     processingVideo: boolean = false;
@@ -225,6 +226,8 @@ class Controller {
                 allDimensions.push([item.targetImage.width, item.targetImage.height]);
             }
         }
+
+        this.allDimensions = allDimensions;
 
         this.tracker = new Tracker(
             allDimensions,
@@ -759,15 +762,36 @@ class Controller {
         });
     }
 
-    _glModelViewMatrix(modelViewTransform: number[][], targetIndex: number) {
+    _glModelViewMatrix(modelViewTransform: number[][], targetIndex: number = 0) {
         // Transformation to map Computer Vision coordinates (Y-down, Z-forward) 
-        // to OpenGL coordinates (Y-up, Z-backward). 
-        // We negate the 2nd and 3rd rows of the pose matrix.
+        // to OpenGL coordinates (Y-up, Z-backward) with unit-normalized centered coordinates.
+        const [w, h] = (this.allDimensions && this.allDimensions[targetIndex]) ? this.allDimensions[targetIndex] : [1, 1];
+
+        // Column 0 (+X: right in OpenGL)
+        const c0x = modelViewTransform[0][0];
+        const c0y = -modelViewTransform[1][0];
+        const c0z = -modelViewTransform[2][0];
+
+        // Column 1 (+Y: up in OpenGL, -Y in CV)
+        const c1x = -modelViewTransform[0][1];
+        const c1y = modelViewTransform[1][1];
+        const c1z = modelViewTransform[2][1];
+
+        // Column 2 (+Z: out towards camera)
+        const c2x = -modelViewTransform[0][2];
+        const c2y = modelViewTransform[1][2];
+        const c2z = modelViewTransform[2][2];
+
+        // Center origin shift in OpenGL (CV center is (w/2, h/2))
+        const posX = modelViewTransform[0][3] + (w / 2) * modelViewTransform[0][0] + (h / 2) * modelViewTransform[0][1];
+        const posY = - (modelViewTransform[1][3] + (w / 2) * modelViewTransform[1][0] + (h / 2) * modelViewTransform[1][1]);
+        const posZ = - (modelViewTransform[2][3] + (w / 2) * modelViewTransform[2][0] + (h / 2) * modelViewTransform[2][1]);
+
         return [
-            modelViewTransform[0][0], -modelViewTransform[1][0], -modelViewTransform[2][0], 0,
-            modelViewTransform[0][1], -modelViewTransform[1][1], -modelViewTransform[2][1], 0,
-            modelViewTransform[0][2], -modelViewTransform[1][2], -modelViewTransform[2][2], 0,
-            modelViewTransform[0][3], -modelViewTransform[1][3], -modelViewTransform[2][3], 1,
+            c0x * w, c0y * w, c0z * w, 0,
+            c1x * w, c1y * w, c1z * w, 0,
+            c2x * w, c2y * w, c2z * w, 0,
+            posX, posY, posZ, 1,
         ];
     }
 

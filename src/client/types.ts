@@ -29,6 +29,8 @@ export interface LocusDetection {
     targetIndex: number;
     /** 4x4 matrix representing the target's position and orientation. */
     worldMatrix: number[] | null;
+    /** Raw 3x4 model-view transform matrix from computer vision estimator. */
+    modelViewTransform?: number[][] | null;
     /** Screen coordinates of the detected feature points. */
     screenCoords: { x: number; y: number }[] | null;
     /** Number of inlier points matched with consensus */

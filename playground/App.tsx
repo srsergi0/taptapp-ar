@@ -1,114 +1,154 @@
 import React, { useState } from 'react';
-import { Locus, LocusTransform } from '../src/client/index.js';
+import { TabControllerThree } from './TabControllerThree.js';
+import { TabUseLocus } from './TabUseLocus.js';
+import { TabDeclarativeLocus } from './TabDeclarativeLocus.js';
 
-const DEFAULT_TARGET = '../tests/assets/test-image.png';
-const DEFAULT_QUERY = '../tests/assets/test-query.jpg';
+type TabId = 'controller-three' | 'use-locus' | 'declarative-locus';
 
 export const App: React.FC = () => {
-    const [feedSource, setFeedSource] = useState<string | undefined>(DEFAULT_QUERY);
-    const [feedName, setFeedName] = useState('test-query.jpg');
+    const [activeTab, setActiveTab] = useState<TabId>('controller-three');
+
+    const tabs = [
+        {
+            id: 'controller-three' as TabId,
+            title: 'Three.js + Controller',
+            subtitle: "import { Controller } from 'locus-ar'",
+            icon: '🔺',
+            badge: 'Bajo Nivel / Three.js',
+            badgeColor: '#10b981'
+        },
+        {
+            id: 'use-locus' as TabId,
+            title: 'useLocus() Hook',
+            subtitle: "import { useLocus } from 'locus-ar/client'",
+            icon: '🪝',
+            badge: 'React Hook',
+            badgeColor: '#6366f1'
+        },
+        {
+            id: 'declarative-locus' as TabId,
+            title: '<Locus /> Declarativo',
+            subtitle: "import { Locus } from 'locus-ar/client'",
+            icon: '⚛️',
+            badge: 'JSX Declarativo',
+            badgeColor: '#a855f7'
+        }
+    ];
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', background: '#090d16', color: '#f8fafc', overflow: 'hidden' }}>
-            {/* Header */}
-            <header style={{ height: '56px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 24px', background: '#0f172a', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '22px' }}>💎</span>
-                    <strong style={{ fontSize: '16px' }}>Locus AR • Componente &lt;Locus /&gt; + &lt;LocusTransform /&gt;</strong>
+        <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100vh',
+            width: '100vw',
+            background: '#090d16',
+            color: '#f8fafc',
+            overflow: 'hidden',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        }}>
+            {/* Main Header & Tab Navigation Bar */}
+            <header style={{
+                height: '64px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '0 20px',
+                background: '#0f172a',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                zIndex: 20
+            }}>
+                {/* Brand / Logo */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '10px',
+                        background: 'linear-gradient(135deg, #10b981, #6366f1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '20px',
+                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                    }}>
+                        ⚡
+                    </div>
+                    <div>
+                        <div style={{ fontSize: '15px', fontWeight: 800, letterSpacing: '-0.3px', background: 'linear-gradient(135deg, #ffffff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                            Locus AR Playground
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+                            3 Formas de Uso de la Misma Librería
+                        </div>
+                    </div>
                 </div>
-                <div style={{ fontSize: '13px', color: '#38bdf8', fontWeight: '600' }}>
-                    🧪 Modo: {feedName}
+
+                {/* Tab Switcher Pills */}
+                <div style={{
+                    display: 'flex',
+                    background: 'rgba(0, 0, 0, 0.4)',
+                    padding: '4px',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                    gap: '4px'
+                }}>
+                    {tabs.map((tab) => {
+                        const isActive = activeTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '8px 16px',
+                                    borderRadius: '8px',
+                                    border: isActive ? `1px solid ${tab.badgeColor}55` : '1px solid transparent',
+                                    background: isActive ? `${tab.badgeColor}22` : 'transparent',
+                                    color: isActive ? '#ffffff' : '#94a3b8',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    fontWeight: isActive ? 700 : 500,
+                                    fontSize: '13px'
+                                }}
+                            >
+                                <span style={{ fontSize: '15px' }}>{tab.icon}</span>
+                                <span>{tab.title}</span>
+                                <span style={{
+                                    fontSize: '10px',
+                                    padding: '2px 6px',
+                                    borderRadius: '6px',
+                                    background: isActive ? `${tab.badgeColor}44` : 'rgba(255,255,255,0.06)',
+                                    color: isActive ? tab.badgeColor : '#64748b',
+                                    fontWeight: 700
+                                }}>
+                                    {tab.badge}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Import snippet preview */}
+                <div style={{
+                    fontSize: '11px',
+                    fontFamily: 'monospace',
+                    color: '#94a3b8',
+                    background: 'rgba(0,0,0,0.3)',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(255,255,255,0.05)'
+                }}>
+                    {tabs.find(t => t.id === activeTab)?.subtitle}
                 </div>
             </header>
 
-            {/* Main Area */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', flex: 1, overflow: 'hidden' }}>
-                {/* Viewport: Pure <Locus> Component */}
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#020617', overflow: 'hidden' }}>
-                    <Locus
-                        targets={{ image: DEFAULT_TARGET, label: 'test-image' }}
-                        source={feedSource}
-                        width={1547}
-                        height={871}
-                        bioInspired={true}
-                        style={{ width: '100%', height: '100%' }}
-                    >
-                        {(detections) =>
-                            detections.map((det) => (
-                                <LocusTransform
-                                    key={det.targetIndex}
-                                    matrix={det.worldMatrix}
-                                    screenCoords={det.screenCoords}
-                                >
-                                    <div style={{
-                                        width: '100px',
-                                        height: '100px',
-                                        background: 'rgba(15, 23, 42, 0.88)',
-                                        backdropFilter: 'blur(12px)',
-                                        border: '2.5px solid #10b981',
-                                        borderRadius: '10px',
-                                        padding: '10px',
-                                        color: 'white',
-                                        boxShadow: '0 8px 32px rgba(16, 185, 129, 0.4)',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        justifyContent: 'space-between',
-                                        boxSizing: 'border-box'
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <span style={{ fontSize: '14px' }}>🎯</span>
-                                            <strong style={{ fontSize: '11px', color: '#34d399' }}>{det.label}</strong>
-                                        </div>
-                                        <p style={{ margin: 0, fontSize: '9px', color: '#94a3b8', lineHeight: 1.2 }}>
-                                            Fijado con &lt;LocusTransform /&gt;
-                                        </p>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', fontWeight: 'bold' }}>
-                                            <span style={{ color: '#38bdf8' }}>Inliers: {det.inliersCount}</span>
-                                            <span style={{ color: '#10b981' }}>{((det.stability || 1) * 100).toFixed(0)}%</span>
-                                        </div>
-                                    </div>
-                                </LocusTransform>
-                            ))
-                        }
-                    </Locus>
-                </div>
-
-                {/* Sidebar Controls */}
-                <aside style={{ background: '#0f172a', borderLeft: '1px solid rgba(255, 255, 255, 0.08)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <div>
-                        <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', textTransform: 'uppercase', color: '#94a3b8' }}>🖼️ Escenas de Prueba</h4>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <button
-                                onClick={() => { setFeedSource(DEFAULT_QUERY); setFeedName('test-query.jpg'); }}
-                                style={{ padding: '12px', borderRadius: '8px', background: feedName === 'test-query.jpg' ? '#10b981' : 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', textAlign: 'left', fontWeight: '600' }}
-                            >
-                                🖥️ test-query.jpg
-                                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>Monitor Samsung con reflejos</div>
-                            </button>
-                            <button
-                                onClick={() => { setFeedSource(DEFAULT_TARGET); setFeedName('test-image.png'); }}
-                                style={{ padding: '12px', borderRadius: '8px', background: feedName === 'test-image.png' ? '#10b981' : 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', textAlign: 'left', fontWeight: '600' }}
-                            >
-                                🖼️ test-image.png
-                                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>Target original 1024x1024</div>
-                            </button>
-                            <button
-                                onClick={() => { setFeedSource(undefined); setFeedName('Cámara Real'); }}
-                                style={{ padding: '12px', borderRadius: '8px', background: feedName === 'Cámara Real' ? '#6366f1' : 'rgba(99, 102, 241, 0.2)', color: 'white', border: '1px solid #6366f1', cursor: 'pointer', textAlign: 'left', fontWeight: '600' }}
-                            >
-                                📷 Activar Cámara Real
-                            </button>
-                        </div>
-                    </div>
-
-                    <div style={{ marginTop: 'auto', padding: '14px', background: 'rgba(0, 0, 0, 0.4)', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                        <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>PARADIGMA ACTIVO</div>
-                        <div style={{ fontSize: '13px', fontWeight: '600', color: '#34d399' }}>
-                            &lt;Locus /&gt; + &lt;LocusTransform /&gt;
-                        </div>
-                    </div>
-                </aside>
-            </div>
+            {/* Active Tab View */}
+            <main style={{ flex: 1, overflow: 'hidden', display: 'flex' }}>
+                {activeTab === 'controller-three' && <TabControllerThree key="controller-three" />}
+                {activeTab === 'use-locus' && <TabUseLocus key="use-locus" />}
+                {activeTab === 'declarative-locus' && <TabDeclarativeLocus key="declarative-locus" />}
+            </main>
         </div>
     );
 };

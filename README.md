@@ -29,9 +29,10 @@
 ## 📖 Table of Contents
 - [🛠 Installation](#-installation)
 - [⚡ Quick Start (Copy-Paste Ready)](#-quick-start)
-  - [1. React Component (`<Locus />`)](#1-react-component-locus-)
-  - [2. Vanilla JavaScript / HTML (`createTracker`)](#2-vanilla-javascript--html-createtracker)
-  - [3. Three.js 3D WebGL Scene](#3-threejs-3d-webgl-scene)
+  - [1. React Component (`<Locus />` + `<LocusTransform />`)](#1-react-component-locus--locustransform-)
+  - [2. Full Control Hook (`useLocus`)](#2-full-control-hook-uselocus)
+  - [3. Vanilla JavaScript / HTML (`createTracker`)](#3-vanilla-javascript--html-createtracker)
+  - [4. Three.js 3D WebGL Scene](#4-threejs-3d-webgl-scene)
 - [🖼️ Image Compiler API](#️-image-compiler-api)
 - [📊 Performance Benchmarks](#-performance-benchmarks)
 - [🔍 Visual Search & Embeddings](#-visual-search--embeddings)
@@ -67,7 +68,11 @@ import { Locus, LocusTransform } from 'locus-ar/client';
 export const MyARApp = () => {
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
-      <Locus targets={{ image: '/assets/card-target.png', label: 'business-card' }}>
+      <Locus 
+        targets={{ image: '/assets/card-target.png', label: 'business-card' }}
+        // Optional: test with static image without camera:
+        // source="/assets/test-scene.jpg"
+      >
         {(detections) =>
           detections.map((det) => (
             <LocusTransform
@@ -126,8 +131,7 @@ export const CustomAR = () => {
     getProjectionMatrix  // () => number[] (16 elements for Three.js)
   } = useLocus(targets, {
     width: 1280,
-    height: 720,
-    bioInspired: true
+    height: 720
   });
 
   useEffect(() => {
@@ -153,7 +157,7 @@ export const CustomAR = () => {
 
 ---
 
-### 2. Vanilla JavaScript / HTML (`createTracker`)
+### 3. Vanilla JavaScript / HTML (`createTracker`)
 
 Zero-configuration camera tracking with DOM overlays:
 
@@ -181,13 +185,13 @@ Zero-configuration camera tracking with DOM overlays:
   </div>
 
   <script type="module">
-    import { startTracking } from 'locus-ar';
+    import { createTracker } from 'locus-ar/client';
 
-    const tracker = await startTracking({
-      targetSrc: './assets/my-target.png', // Image URL or pre-compiled .taar
+    const card = document.getElementById('overlay-card');
+
+    const tracker = await createTracker({
+      target: './assets/card-target.png',
       container: document.getElementById('ar-container'),
-      overlay: document.getElementById('overlay-card'),
-      callbacks: {
         onFound: (data) => console.log('Target found!', data),
         onLost: () => console.log('Target lost'),
         onUpdate: (data) => {
@@ -226,11 +230,10 @@ anchorGroup.matrixAutoUpdate = false;
 anchorGroup.visible = false;
 scene.add(anchorGroup);
 
-// Add a 3D Mesh (e.g. 3D Target Plane)
-const planeGeo = new THREE.PlaneGeometry(1024, 1024);
-const planeMat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.5 });
+// 🟩 Add 3D Target Plane (1x1 unit mesh centered on marker)
+const planeGeo = new THREE.PlaneGeometry(1, 1);
+const planeMat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
 const plane = new THREE.Mesh(planeGeo, planeMat);
-plane.position.set(512, 512, 0); // Center of 1024x1024 marker
 anchorGroup.add(plane);
 
 // 3. Initialize Locus AR Controller

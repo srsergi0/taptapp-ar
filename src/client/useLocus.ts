@@ -116,12 +116,13 @@ export function useLocus(targets: LocusTarget[], config: LocusConfig = {}) {
                 },
                 onUpdate: (data) => {
                     if (data.type === 'updateMatrix') {
-                        const { targetIndex, worldMatrix, screenCoords, stabilities } = data;
+                        const { targetIndex, worldMatrix, modelViewTransform, screenCoords, stabilities } = data;
                         if (targetIndex !== undefined) {
                             if (worldMatrix) {
                                 activeDetections.set(targetIndex, {
                                     targetIndex,
                                     worldMatrix,
+                                    modelViewTransform: modelViewTransform || null,
                                     screenCoords,
                                     label: targets[targetIndex]?.label,
                                     inliersCount: screenCoords?.length || 0,
@@ -180,6 +181,14 @@ export function useLocus(targets: LocusTarget[], config: LocusConfig = {}) {
         return controllerRef.current?.getProjectionMatrix() || [];
     }, []);
 
+    const getProjectionTransform = useCallback((): number[][] => {
+        return controllerRef.current?.projectionTransform || [];
+    }, []);
+
+    const getMarkerDimensions = useCallback((): number[][] => {
+        return controllerRef.current?.allDimensions || [];
+    }, []);
+
     useEffect(() => {
         return () => {
             stop();
@@ -193,7 +202,9 @@ export function useLocus(targets: LocusTarget[], config: LocusConfig = {}) {
         error,
         start,
         stop,
-        getProjectionMatrix
+        getProjectionMatrix,
+        getProjectionTransform,
+        getMarkerDimensions
     };
 }
 

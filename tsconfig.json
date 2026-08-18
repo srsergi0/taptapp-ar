@@ -18,6 +18,15 @@
         "paths": {
             "@/*": [
                 "./src/*"
+            ],
+            "locus-ar/client": [
+                "./src/client/index.ts"
+            ],
+            "locus-ar/compiler": [
+                "./src/compiler/offline-compiler.ts"
+            ],
+            "locus-ar": [
+                "./src/index.ts"
             ]
         }
     },

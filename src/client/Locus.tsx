@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, ReactNode } from 'react';
 import { useLocus } from './useLocus.js';
 import { LocusConfig, LocusTarget, LocusDetection } from './types.js';
+import { projectToScreen } from '../core/utils/projection.js';
 
 interface LocusProps extends LocusConfig {
     /** Single target image source or array of target objects. */
@@ -17,10 +18,15 @@ interface LocusProps extends LocusConfig {
     autoStart?: boolean;
 }
 
-interface LocusContextType {
+export interface LocusContextType {
     detections: LocusDetection[];
     container: HTMLElement | null;
     state: string;
+    projectionMatrix?: number[];
+    projectionTransform?: number[][];
+    markerDimensions?: number[][];
+    inputWidth?: number;
+    inputHeight?: number;
 }
 
 export const LocusContext = React.createContext<LocusContextType>({
@@ -57,7 +63,15 @@ export const Locus: React.FC<LocusProps> = ({
         return targetsProp;
     }, [targetsProp]);
 
-    const { state, detections, error, start } = useLocus(targets, config);
+    const {
+        state,
+        detections,
+        error,
+        start,
+        getProjectionMatrix,
+        getProjectionTransform,
+        getMarkerDimensions
+    } = useLocus(targets, config);
 
     useEffect(() => {
         if (containerRef.current) {
@@ -75,10 +89,12 @@ export const Locus: React.FC<LocusProps> = ({
                 img.src = source;
                 img.onload = () => {
                     if (canvasFeedRef.current) {
-                        canvasFeedRef.current.width = img.naturalWidth || 1547;
-                        canvasFeedRef.current.height = img.naturalHeight || 871;
+                        const curW = img.naturalWidth || config.width || 1547;
+                        const curH = img.naturalHeight || config.height || 871;
+                        canvasFeedRef.current.width = curW;
+                        canvasFeedRef.current.height = curH;
                         const ctx = canvasFeedRef.current.getContext('2d');
-                        ctx?.drawImage(img, 0, 0, canvasFeedRef.current.width, canvasFeedRef.current.height);
+                        ctx?.drawImage(img, 0, 0, curW, curH);
                         start(canvasFeedRef.current);
                     }
                 };
@@ -88,7 +104,7 @@ export const Locus: React.FC<LocusProps> = ({
         } else if (videoRef.current) {
             start(videoRef.current);
         }
-    }, [autoStart, source, start]);
+    }, [autoStart, source, start, config.width, config.height]);
 
     const containerStyle: React.CSSProperties = {
         position: 'relative',
@@ -102,7 +118,7 @@ export const Locus: React.FC<LocusProps> = ({
     const videoStyle: React.CSSProperties = {
         width: '100%',
         height: '100%',
-        objectFit: 'contain'
+        display: 'block'
     };
 
     const overlayContainerStyle: React.CSSProperties = {
@@ -125,7 +141,9 @@ export const Locus: React.FC<LocusProps> = ({
             return (
                 <LocusTransform
                     matrix={detections[0].worldMatrix}
+                    modelViewTransform={detections[0].modelViewTransform}
                     screenCoords={detections[0].screenCoords}
+                    targetIndex={detections[0].targetIndex}
                     container={containerRef.current}
                 >
                     {children}
@@ -137,7 +155,16 @@ export const Locus: React.FC<LocusProps> = ({
     };
 
     return (
-        <LocusContext.Provider value={{ detections, container: containerRef.current, state }}>
+        <LocusContext.Provider value={{
+            detections,
+            container: containerRef.current,
+            state,
+            projectionMatrix: getProjectionMatrix(),
+            projectionTransform: getProjectionTransform(),
+            markerDimensions: getMarkerDimensions(),
+            inputWidth: config.width || 1547,
+            inputHeight: config.height || 871
+        }}>
             <div ref={containerRef} className={className} style={containerStyle}>
                 {source ? (
                     <canvas ref={canvasFeedRef} style={videoStyle} />
@@ -177,7 +204,8 @@ export const Locus: React.FC<LocusProps> = ({
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
-                        gap: '12px'
+                        gap: '12px',
+                        zIndex: 30
                     }}>
                         <div className="spinner" style={{
                             width: '30px',
@@ -187,7 +215,7 @@ export const Locus: React.FC<LocusProps> = ({
                             borderRadius: '50%',
                             animation: 'spin 1s linear infinite'
                         }} />
-                        Compiling Target...
+                        Compilando Target...
                         <style>{`
                 @keyframes spin { to { transform: rotate(360deg); } }
               `}</style>
@@ -206,7 +234,8 @@ export const Locus: React.FC<LocusProps> = ({
                         padding: '16px',
                         borderRadius: '12px',
                         fontSize: '0.9rem',
-                        boxShadow: '0 10px 20px rgba(0,0,0,0.2)'
+                        boxShadow: '0 10px 20px rgba(0,0,0,0.2)',
+                        zIndex: 30
                     }}>
                         <strong>Camera Error:</strong> {error}
                     </div>
@@ -216,35 +245,64 @@ export const Locus: React.FC<LocusProps> = ({
     );
 };
 
-/**
- * LocusTransform - Positions children on top of a detection.
- */
-export const LocusTransform: React.FC<{
+export interface LocusTransformProps {
     matrix: number[] | null;
+    modelViewTransform?: number[][] | null;
     screenCoords?: { x: number; y: number }[] | null;
+    targetIndex?: number;
     container?: HTMLElement | null;
     children: ReactNode;
-}> = ({ matrix, screenCoords, container: containerProp, children }) => {
+    style?: React.CSSProperties;
+    className?: string;
+}
+
+/**
+ * LocusTransform - Positions children on top of a detection in exact 3D perspective.
+ */
+export const LocusTransform: React.FC<LocusTransformProps> = ({
+    matrix,
+    modelViewTransform,
+    screenCoords,
+    targetIndex = 0,
+    container: containerProp,
+    children,
+    style,
+    className
+}) => {
     const ctx = React.useContext(LocusContext);
     const container = containerProp || ctx.container;
 
-    if (!matrix || !screenCoords || !container) return null;
+    if (!container || (!matrix && !modelViewTransform && (!screenCoords || screenCoords.length < 4))) {
+        return null;
+    }
 
-    // Use homography for more stable DOM alignment
-    const homography = solveHomographyFromPoints(screenCoords, container);
+    const homography = solveHomographyFromTarget(
+        modelViewTransform || null,
+        matrix || null,
+        screenCoords || null,
+        targetIndex,
+        ctx,
+        container
+    );
+
+    if (!homography) return null;
 
     return (
-        <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100px', // Base size (matching solveHomography)
-            height: '100px',
-            transformOrigin: '0 0',
-            transform: `matrix3d(${homography.join(',')})`,
-            pointerEvents: 'auto',
-            zIndex: 10
-        }}>
+        <div
+            className={className}
+            style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100px', // Base coordinate system (0..100 maps to 0..markerWidth, 0..markerHeight)
+                height: '100px',
+                transformOrigin: '0 0',
+                transform: `matrix3d(${homography.join(',')})`,
+                pointerEvents: 'auto',
+                zIndex: 10,
+                ...style
+            }}
+        >
             {children}
         </div>
     );
@@ -259,7 +317,6 @@ const DebugOverlay: React.FC<{ detections: LocusDetection[] }> = ({ detections }
         >
             {detections.map((det, i) => {
                 if (!det.screenCoords) return null;
-                // Map points to 0-100 scale for SVG
                 const pts = det.screenCoords.map(p => `${(p.x / 640) * 100},${(p.y / 480) * 100}`).join(' ');
                 return (
                     <polygon
@@ -276,80 +333,97 @@ const DebugOverlay: React.FC<{ detections: LocusDetection[] }> = ({ detections }
 };
 
 /**
- * Calculates a homography matrix to map a 100x100 square to the 4 screen corners.
+ * Calculates the exact 4-corner homography matrix from the target pose.
  */
-function solveHomographyFromPoints(pts: { x: number; y: number }[], container: HTMLElement) {
-    if (!pts || pts.length < 4) return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+function solveHomographyFromTarget(
+    mVT: number[][] | null,
+    worldMatrix: number[] | null,
+    screenCoords: { x: number; y: number }[] | null,
+    targetIndex: number,
+    ctx: LocusContextType,
+    container: HTMLElement
+) {
     const rect = container.getBoundingClientRect();
     const w = rect.width || container.clientWidth || 1547;
     const h = rect.height || container.clientHeight || 871;
 
-    // Check media element inside container
     const mediaEl = container.querySelector('video, canvas') as HTMLVideoElement | HTMLCanvasElement | null;
-    const inputW = (mediaEl as HTMLVideoElement)?.videoWidth || (mediaEl as HTMLCanvasElement)?.width || 1547;
-    const inputH = (mediaEl as HTMLVideoElement)?.videoHeight || (mediaEl as HTMLCanvasElement)?.height || 871;
+    const inputW = (mediaEl as HTMLVideoElement)?.videoWidth || (mediaEl as HTMLCanvasElement)?.width || ctx.inputWidth || 1547;
+    const inputH = (mediaEl as HTMLVideoElement)?.videoHeight || (mediaEl as HTMLCanvasElement)?.height || ctx.inputHeight || 871;
 
-    const containerRatio = w / h;
-    const mediaRatio = inputW / inputH;
+    const markerDims = (ctx.markerDimensions && ctx.markerDimensions[targetIndex]) || [1024, 1024];
+    const markerW = markerDims[0];
+    const markerH = markerDims[1];
 
-    let renderW = w;
-    let renderH = h;
-    let offsetX = 0;
-    let offsetY = 0;
+    let pUL: { sx: number; sy: number };
+    let pUR: { sx: number; sy: number };
+    let pLL: { sx: number; sy: number };
+    let pLR: { sx: number; sy: number };
 
-    if (containerRatio > mediaRatio) {
-        renderH = h;
-        renderW = renderH * mediaRatio;
-        offsetX = (w - renderW) / 2;
+    if (mVT && ctx.projectionTransform && ctx.projectionTransform.length === 3) {
+        pUL = projectToScreen(0, 0, 0, mVT, ctx.projectionTransform, inputW, inputH, rect, false);
+        pUR = projectToScreen(markerW, 0, 0, mVT, ctx.projectionTransform, inputW, inputH, rect, false);
+        pLL = projectToScreen(0, markerH, 0, mVT, ctx.projectionTransform, inputW, inputH, rect, false);
+        pLR = projectToScreen(markerW, markerH, 0, mVT, ctx.projectionTransform, inputW, inputH, rect, false);
+    } else if (worldMatrix && ctx.projectionMatrix && ctx.projectionMatrix.length === 16) {
+        const proj = ctx.projectionMatrix;
+        const projectPoint = (x: number, y: number, z: number) => {
+            const xc = worldMatrix[0] * x + worldMatrix[4] * y + worldMatrix[8] * z + worldMatrix[12];
+            const yc = worldMatrix[1] * x + worldMatrix[5] * y + worldMatrix[9] * z + worldMatrix[13];
+            const zc = worldMatrix[2] * x + worldMatrix[6] * y + worldMatrix[10] * z + worldMatrix[14];
+            const wc = worldMatrix[3] * x + worldMatrix[7] * y + worldMatrix[11] * z + worldMatrix[15];
+
+            const clip_x = proj[0] * xc + proj[4] * yc + proj[8] * zc + proj[12] * wc;
+            const clip_y = proj[1] * xc + proj[5] * yc + proj[9] * zc + proj[13] * wc;
+            const clip_w = proj[3] * xc + proj[7] * yc + proj[11] * zc + proj[15] * wc;
+
+            const ndc_x = clip_x / clip_w;
+            const ndc_y = clip_y / clip_w;
+
+            return {
+                sx: (ndc_x * 0.5 + 0.5) * w,
+                sy: (-ndc_y * 0.5 + 0.5) * h
+            };
+        };
+
+        pUL = projectPoint(-0.5, 0.5 * (markerH / markerW), 0);
+        pUR = projectPoint(0.5, 0.5 * (markerH / markerW), 0);
+        pLL = projectPoint(-0.5, -0.5 * (markerH / markerW), 0);
+        pLR = projectPoint(0.5, -0.5 * (markerH / markerW), 0);
     } else {
-        renderW = w;
-        renderH = renderW / mediaRatio;
-        offsetY = (h - renderH) / 2;
+        return null;
     }
 
-    const scaleX = renderW / inputW;
-    const scaleY = renderH / inputH;
-
-    // Find bounding corners from inliers
-    let minX = Infinity, maxX = -Infinity;
-    let minY = Infinity, maxY = -Infinity;
-
-    for (const p of pts) {
-        if (p.x < minX) minX = p.x;
-        if (p.x > maxX) maxX = p.x;
-        if (p.y < minY) minY = p.y;
-        if (p.y > maxY) maxY = p.y;
-    }
-
-    const p1 = { x: offsetX + minX * scaleX, y: offsetY + minY * scaleY }; // Upper-Left (pUL)
-    const p2 = { x: offsetX + maxX * scaleX, y: offsetY + minY * scaleY }; // Upper-Right (pUR)
-    const p3 = { x: offsetX + minX * scaleX, y: offsetY + maxY * scaleY }; // Lower-Left (pLL)
-    const p4 = { x: offsetX + maxX * scaleX, y: offsetY + maxY * scaleY }; // Lower-Right (pLR)
-
-    return solveHomography(100, 100, p1, p2, p3, p4);
+    return solveHomography(100, 100, pUL, pUR, pLL, pLR);
 }
 
-function solveHomography(w: number, h: number, p1: any, p2: any, p3: any, p4: any) {
-    const x1 = p1.x, y1 = p1.y;
-    const x2 = p2.x, y2 = p2.y;
-    const x3 = p3.x, y3 = p3.y;
-    const x4 = p4.x, y4 = p4.y;
+function solveHomography(
+    w: number,
+    h: number,
+    p1: { sx: number; sy: number },
+    p2: { sx: number; sy: number },
+    p3: { sx: number; sy: number },
+    p4: { sx: number; sy: number }
+) {
+    const x1 = p1.sx, y1 = p1.sy;
+    const x2 = p2.sx, y2 = p2.sy;
+    const x3 = p3.sx, y3 = p3.sy;
+    const x4 = p4.sx, y4 = p4.sy;
 
     const dx1 = x2 - x4, dx2 = x3 - x4, dx3 = x1 - x2 + x4 - x3;
     const dy1 = y2 - y4, dy2 = y3 - y4, dy3 = y1 - y2 + y4 - y3;
 
-    let a, b, c, d, e, f, g, h_coeff;
     const det = dx1 * dy2 - dx2 * dy1;
     if (Math.abs(det) < 0.000001) return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 
-    g = (dx3 * dy2 - dx2 * dy3) / det;
-    h_coeff = (dx1 * dy3 - dx3 * dy1) / det;
-    a = x2 - x1 + g * x2;
-    b = x3 - x1 + h_coeff * x3;
-    c = x1;
-    d = y2 - y1 + g * y2;
-    e = y3 - y1 + h_coeff * y3;
-    f = y1;
+    const g = (dx3 * dy2 - dx2 * dy3) / det;
+    const h_coeff = (dx1 * dy3 - dx3 * dy1) / det;
+    const a = x2 - x1 + g * x2;
+    const b = x3 - x1 + h_coeff * x3;
+    const c = x1;
+    const d = y2 - y1 + g * y2;
+    const e = y3 - y1 + h_coeff * y3;
+    const f = y1;
 
     return [
         a / w, d / w, 0, g / w,
