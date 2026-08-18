@@ -1,12 +1,17 @@
 import { execSync } from 'child_process';
 import esbuild from 'esbuild';
-import { readdirSync, statSync, unlinkSync, readFileSync, writeFileSync } from 'fs';
+import { readdirSync, statSync, unlinkSync, readFileSync, writeFileSync, rmSync, existsSync } from 'fs';
 import { join, extname, resolve } from 'path';
 
 const DIST_DIR = './dist';
 
 async function build() {
     console.log('🏗️  Starting Locus AR Ultra-Optimized Build...');
+
+    // 0. Clean previous dist
+    if (existsSync(DIST_DIR)) {
+        rmSync(DIST_DIR, { recursive: true, force: true });
+    }
 
     // 1. Run TSC to generate type definitions
     console.log('📊 Generating type definitions (tsc)...');
@@ -49,29 +54,12 @@ async function build() {
     }
 
     const allFiles = getFiles(DIST_DIR);
-    let removedJs = 0;
     let minifiedDts = 0;
-
-    const criticalJs = new Set([
-        resolve(DIST_DIR, 'index.js'),
-        resolve(DIST_DIR, 'client/index.js'),
-        resolve(DIST_DIR, 'compiler/offline-compiler.js'),
-    ]);
 
     for (const file of allFiles) {
         const ext = extname(file);
 
-        if (ext === '.js') {
-            const isEntry = criticalJs.has(file);
-            const isChunk = file.includes('chunk-');
-            const isHashedWorker = /worker-.*\.js$/.test(file);
-
-            // Only keep entries, chunks, and hashed workers
-            if (!isEntry && !isChunk && !isHashedWorker) {
-                unlinkSync(file);
-                removedJs++;
-            }
-        } else if (ext === '.d.ts') {
+        if (ext === '.d.ts') {
             // Minify .d.ts files by removing comments to save space
             const content = readFileSync(file, 'utf8');
             const minified = content
@@ -87,7 +75,6 @@ async function build() {
         }
     }
 
-    console.log(`   ✨ Removed ${removedJs} redundant JS files.`);
     console.log(`   ✨ Minified ${minifiedDts} type definition files.`);
 
     let finalSize;
