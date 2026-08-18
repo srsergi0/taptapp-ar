@@ -56,9 +56,9 @@ pnpm add locus-ar
 
 ## ⚡ Quick Start
 
-### 1. React Component (`<Locus />`)
+### 1. React Component (`<Locus />` + `<LocusTransform />`)
 
-The simplest and most elegant way to embed AR in a React app:
+The simplest and most elegant way to embed AR in a React app with automatic 3D homography:
 
 ```tsx
 import React from 'react';
@@ -76,20 +76,76 @@ export const MyARApp = () => {
               screenCoords={det.screenCoords}
             >
               <div style={{
-                background: 'rgba(16, 185, 129, 0.85)',
-                color: 'white',
-                padding: '16px',
+                width: '100px',
+                height: '100px',
+                background: 'rgba(15, 23, 42, 0.9)',
+                border: '2px solid #6366f1',
                 borderRadius: '12px',
+                padding: '12px',
+                color: 'white',
                 backdropFilter: 'blur(8px)',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+                boxShadow: '0 8px 32px rgba(99, 102, 241, 0.35)'
               }}>
                 <h3>🎯 Marcador Detectado</h3>
-                <p>Estabilidad: {(det.stability * 100).toFixed(0)}%</p>
+                <p>Inliers: {det.inliersCount}</p>
+                <p>Estabilidad: {((det.stability || 1) * 100).toFixed(0)}%</p>
               </div>
             </LocusTransform>
           ))
         }
       </Locus>
+    </div>
+  );
+};
+```
+
+---
+
+### 2. Full Control: Hook `useLocus`
+
+For advanced React developers who need custom Three.js scenes, canvas overlays, or fine-grained pipeline control:
+
+```tsx
+import React, { useEffect, useRef, useMemo } from 'react';
+import { useLocus } from 'locus-ar/client';
+
+export const CustomAR = () => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const targets = useMemo(() => [
+    { image: '/assets/target.png', label: 'poster' }
+  ], []);
+
+  const {
+    state,               // 'idle' | 'initializing' | 'compiling' | 'tracking' | 'error'
+    detections,          // Array of LocusDetection
+    compilationProgress, // 0 - 100%
+    error,               // Error string if any
+    start,               // start(videoElement | canvasElement)
+    stop,                // stop()
+    getProjectionMatrix  // () => number[] (16 elements for Three.js)
+  } = useLocus(targets, {
+    width: 1280,
+    height: 720,
+    bioInspired: true
+  });
+
+  useEffect(() => {
+    if (videoRef.current) {
+      start(videoRef.current);
+    }
+    return () => stop();
+  }, [start, stop]);
+
+  return (
+    <div>
+      <video ref={videoRef} playsInline autoPlay muted />
+      {state === 'compiling' && <p>Compilando: {compilationProgress}%</p>}
+      {detections.map(det => (
+        <div key={det.targetIndex}>
+          Fijado: {det.label} ({det.inliersCount} inliers)
+        </div>
+      ))}
     </div>
   );
 };

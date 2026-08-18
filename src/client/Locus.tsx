@@ -1,10 +1,12 @@
-import React, { useRef, useEffect, ReactNode } from 'react';
+import React, { useRef, useEffect, useState, ReactNode } from 'react';
 import { useLocus } from './useLocus.js';
 import { LocusConfig, LocusTarget, LocusDetection } from './types.js';
 
 interface LocusProps extends LocusConfig {
     /** Single target image source or array of target objects. */
     targets: string | LocusTarget | LocusTarget[];
+    /** Custom feed source (e.g. image URL, HTMLCanvasElement, or HTMLImageElement) for digital simulation */
+    source?: string | HTMLImageElement | HTMLCanvasElement;
     /** Children can be a function receiving detections or React nodes. */
     children?: ReactNode | ((detections: LocusDetection[]) => ReactNode);
     /** CSS class for the container. */
@@ -15,11 +17,24 @@ interface LocusProps extends LocusConfig {
     autoStart?: boolean;
 }
 
+interface LocusContextType {
+    detections: LocusDetection[];
+    container: HTMLElement | null;
+    state: string;
+}
+
+export const LocusContext = React.createContext<LocusContextType>({
+    detections: [],
+    container: null,
+    state: 'idle'
+});
+
 /**
  * Locus Component - High-level AR view for React.
  */
 export const Locus: React.FC<LocusProps> = ({
     targets: targetsProp,
+    source,
     children,
     className,
     style,
@@ -28,6 +43,8 @@ export const Locus: React.FC<LocusProps> = ({
 }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasFeedRef = useRef<HTMLCanvasElement>(null);
+    const [, forceUpdate] = useState({});
 
     // Normalize targets
     const targets = React.useMemo(() => {
@@ -43,10 +60,35 @@ export const Locus: React.FC<LocusProps> = ({
     const { state, detections, error, start } = useLocus(targets, config);
 
     useEffect(() => {
-        if (autoStart && videoRef.current) {
+        if (containerRef.current) {
+            forceUpdate({});
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!autoStart) return;
+
+        if (source) {
+            if (typeof source === 'string') {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.src = source;
+                img.onload = () => {
+                    if (canvasFeedRef.current) {
+                        canvasFeedRef.current.width = img.naturalWidth || 1547;
+                        canvasFeedRef.current.height = img.naturalHeight || 871;
+                        const ctx = canvasFeedRef.current.getContext('2d');
+                        ctx?.drawImage(img, 0, 0, canvasFeedRef.current.width, canvasFeedRef.current.height);
+                        start(canvasFeedRef.current);
+                    }
+                };
+            } else if (source instanceof HTMLCanvasElement || source instanceof HTMLImageElement) {
+                start(source);
+            }
+        } else if (videoRef.current) {
             start(videoRef.current);
         }
-    }, [autoStart, start]);
+    }, [autoStart, source, start]);
 
     const containerStyle: React.CSSProperties = {
         position: 'relative',
@@ -60,7 +102,7 @@ export const Locus: React.FC<LocusProps> = ({
     const videoStyle: React.CSSProperties = {
         width: '100%',
         height: '100%',
-        objectFit: 'cover'
+        objectFit: 'contain'
     };
 
     const overlayContainerStyle: React.CSSProperties = {
@@ -95,76 +137,82 @@ export const Locus: React.FC<LocusProps> = ({
     };
 
     return (
-        <div ref={containerRef} className={className} style={containerStyle}>
-            <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                style={videoStyle}
-            />
+        <LocusContext.Provider value={{ detections, container: containerRef.current, state }}>
+            <div ref={containerRef} className={className} style={containerStyle}>
+                {source ? (
+                    <canvas ref={canvasFeedRef} style={videoStyle} />
+                ) : (
+                    <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        style={videoStyle}
+                    />
+                )}
 
-            <div style={overlayContainerStyle}>
-                {renderChildren()}
+                <div style={overlayContainerStyle}>
+                    {renderChildren()}
+                </div>
+
+                {config.debugMode && (
+                    <DebugOverlay detections={detections} />
+                )}
+
+                {state === 'compiling' && (
+                    <div className="locus-loader" style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        background: 'rgba(15, 23, 42, 0.9)',
+                        backdropFilter: 'blur(8px)',
+                        color: '#fff',
+                        padding: '24px 32px',
+                        borderRadius: '20px',
+                        fontSize: '1rem',
+                        fontWeight: 700,
+                        boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '12px'
+                    }}>
+                        <div className="spinner" style={{
+                            width: '30px',
+                            height: '30px',
+                            border: '3px solid rgba(99, 102, 241, 0.3)',
+                            borderTopColor: '#6366f1',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite'
+                        }} />
+                        Compiling Target...
+                        <style>{`
+                @keyframes spin { to { transform: rotate(360deg); } }
+              `}</style>
+                    </div>
+                )}
+
+                {error && (
+                    <div style={{
+                        position: 'absolute',
+                        bottom: '24px',
+                        left: '24px',
+                        right: '24px',
+                        background: 'rgba(220, 38, 38, 0.9)',
+                        backdropFilter: 'blur(4px)',
+                        color: '#fff',
+                        padding: '16px',
+                        borderRadius: '12px',
+                        fontSize: '0.9rem',
+                        boxShadow: '0 10px 20px rgba(0,0,0,0.2)'
+                    }}>
+                        <strong>Camera Error:</strong> {error}
+                    </div>
+                )}
             </div>
-
-            {config.debugMode && (
-                <DebugOverlay detections={detections} />
-            )}
-
-            {state === 'compiling' && (
-                <div className="locus-loader" style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    background: 'rgba(15, 23, 42, 0.9)',
-                    backdropFilter: 'blur(8px)',
-                    color: '#fff',
-                    padding: '24px 32px',
-                    borderRadius: '20px',
-                    fontSize: '1rem',
-                    fontWeight: 700,
-                    boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '12px'
-                }}>
-                    <div className="spinner" style={{
-                        width: '30px',
-                        height: '30px',
-                        border: '3px solid rgba(99, 102, 241, 0.3)',
-                        borderTopColor: '#6366f1',
-                        borderRadius: '50%',
-                        animation: 'spin 1s linear infinite'
-                    }} />
-                    Compiling Target...
-                    <style>{`
-            @keyframes spin { to { transform: rotate(360deg); } }
-          `}</style>
-                </div>
-            )}
-
-            {error && (
-                <div style={{
-                    position: 'absolute',
-                    bottom: '24px',
-                    left: '24px',
-                    right: '24px',
-                    background: 'rgba(220, 38, 38, 0.9)',
-                    backdropFilter: 'blur(4px)',
-                    color: '#fff',
-                    padding: '16px',
-                    borderRadius: '12px',
-                    fontSize: '0.9rem',
-                    boxShadow: '0 10px 20px rgba(0,0,0,0.2)'
-                }}>
-                    <strong>Camera Error:</strong> {error}
-                </div>
-            )}
-        </div>
+        </LocusContext.Provider>
     );
 };
 
@@ -176,7 +224,10 @@ export const LocusTransform: React.FC<{
     screenCoords?: { x: number; y: number }[] | null;
     container?: HTMLElement | null;
     children: ReactNode;
-}> = ({ matrix, screenCoords, container, children }) => {
+}> = ({ matrix, screenCoords, container: containerProp, children }) => {
+    const ctx = React.useContext(LocusContext);
+    const container = containerProp || ctx.container;
+
     if (!matrix || !screenCoords || !container) return null;
 
     // Use homography for more stable DOM alignment
@@ -228,19 +279,52 @@ const DebugOverlay: React.FC<{ detections: LocusDetection[] }> = ({ detections }
  * Calculates a homography matrix to map a 100x100 square to the 4 screen corners.
  */
 function solveHomographyFromPoints(pts: { x: number; y: number }[], container: HTMLElement) {
-    if (!pts || pts.length < 4) return [1, 0, 0, 0, 1, 0, 0, 0, 1];
+    if (!pts || pts.length < 4) return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
     const rect = container.getBoundingClientRect();
-    const w = rect.width;
-    const h = rect.height;
+    const w = rect.width || container.clientWidth || 1547;
+    const h = rect.height || container.clientHeight || 871;
 
-    // Points come in 640x480 scale from useLocus hook
-    const scaleX = w / 640;
-    const scaleY = h / 480;
+    // Check media element inside container
+    const mediaEl = container.querySelector('video, canvas') as HTMLVideoElement | HTMLCanvasElement | null;
+    const inputW = (mediaEl as HTMLVideoElement)?.videoWidth || (mediaEl as HTMLCanvasElement)?.width || 1547;
+    const inputH = (mediaEl as HTMLVideoElement)?.videoHeight || (mediaEl as HTMLCanvasElement)?.height || 871;
 
-    const p1 = { x: pts[0].x * scaleX, y: pts[0].y * scaleY };
-    const p2 = { x: pts[1].x * scaleX, y: pts[1].y * scaleY };
-    const p3 = { x: pts[2].x * scaleX, y: pts[2].y * scaleY };
-    const p4 = { x: pts[3].x * scaleX, y: pts[3].y * scaleY };
+    const containerRatio = w / h;
+    const mediaRatio = inputW / inputH;
+
+    let renderW = w;
+    let renderH = h;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    if (containerRatio > mediaRatio) {
+        renderH = h;
+        renderW = renderH * mediaRatio;
+        offsetX = (w - renderW) / 2;
+    } else {
+        renderW = w;
+        renderH = renderW / mediaRatio;
+        offsetY = (h - renderH) / 2;
+    }
+
+    const scaleX = renderW / inputW;
+    const scaleY = renderH / inputH;
+
+    // Find bounding corners from inliers
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+
+    for (const p of pts) {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+    }
+
+    const p1 = { x: offsetX + minX * scaleX, y: offsetY + minY * scaleY }; // Upper-Left (pUL)
+    const p2 = { x: offsetX + maxX * scaleX, y: offsetY + minY * scaleY }; // Upper-Right (pUR)
+    const p3 = { x: offsetX + minX * scaleX, y: offsetY + maxY * scaleY }; // Lower-Left (pLL)
+    const p4 = { x: offsetX + maxX * scaleX, y: offsetY + maxY * scaleY }; // Lower-Right (pLR)
 
     return solveHomography(100, 100, p1, p2, p3, p4);
 }
