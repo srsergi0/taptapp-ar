@@ -13,6 +13,18 @@ async function build() {
         rmSync(DIST_DIR, { recursive: true, force: true });
     }
 
+    // 0.5 Bundle worker into standalone inline Blob code
+    console.log('⚡ Bundling standalone worker blob...');
+    const workerBuild = await esbuild.build({
+        entryPoints: ['src/runtime/controller.worker.js'],
+        bundle: true,
+        minify: true,
+        format: 'iife',
+        write: false,
+    });
+    const workerCode = workerBuild.outputFiles[0].text;
+    writeFileSync('src/runtime/worker-blob.ts', `export const WORKER_CODE = ${JSON.stringify(workerCode)};\n`);
+
     // 1. Run TSC to generate type definitions
     console.log('📊 Generating type definitions (tsc)...');
     execSync('bunx tsc', { stdio: 'inherit' });

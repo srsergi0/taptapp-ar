@@ -1,72 +1,103 @@
 import { describe, it, expect } from 'vitest';
 import { OfflineCompiler } from '../src/compiler/offline-compiler.js';
-import path from 'path';
-import { Jimp } from 'jimp';
-import { fileURLToPath } from 'url';
+import { createSyntheticTestImage } from './helpers/test-utils.js';
 
-// GPU.js will run in CPU mode in Node.js (no headless-gl)
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-describe('OfflineCompiler', () => {
-    it('should compile an image for tracking', async () => {
-        console.log('🚀 Starting OfflineCompiler test with Jimp...');
-
+describe('OfflineCompiler Unit & Integration Tests', () => {
+    it('should compile an image and extract valid tracking points', async () => {
         const compiler = new OfflineCompiler();
-        const imagePath = path.join(__dirname, 'assets/test-image.png');
+        const targetImage = createSyntheticTestImage({ width: 256, height: 256, type: 'geometric' });
 
-        console.log(`📸 Loading image with Jimp: ${imagePath}`);
-        const image = await Jimp.read(imagePath);
-
-        const { width, height } = image.bitmap;
-        console.log(`🖼️ Loaded image: ${width}x${height}`);
-
-        // Convert to grayscale using Jimp
-        image.greyscale();
-
-        // Extract grayscale data (R=G=B since it is greyscale)
-        const grayscaleData = new Uint8Array(width * height);
-        const rgbaData = image.bitmap.data;
-        for (let i = 0; i < width * height; i++) {
-            grayscaleData[i] = rgbaData[i * 4];
-        }
-
-        const targetImage = {
-            width,
-            height,
-            data: grayscaleData
-        };
-
-        console.log('🧪 Running compileTrack...');
-        const startTime = Date.now();
-
+        const progressCalls = [];
         const result = await compiler.compileTrack({
             progressCallback: (percent) => {
-                process.stdout.write(`\rCompilation progress: ${percent.toFixed(2)}%`);
+                progressCalls.push(percent);
             },
-            targetImages: [targetImage],
+            targetImages: [{
+                width: targetImage.width,
+                height: targetImage.height,
+                data: targetImage.grayscaleData
+            }],
             basePercent: 0
         });
 
-        const duration = (Date.now() - startTime) / 1000;
-        console.log(`\n✅ Compilation finished in ${duration.toFixed(2)}s`);
-
-        expect(result).toBeDefined();
+        // 1. Structure validation
         expect(Array.isArray(result)).toBe(true);
         expect(result.length).toBe(1);
 
         const trackingData = result[0];
         expect(Array.isArray(trackingData)).toBe(true);
-        expect(trackingData.length).toBeGreaterThan(0);
+        expect(trackingData.length).toBeGreaterThanOrEqual(1);
 
-        console.log(`📈 Extracted ${trackingData.length} feature levels/sets`);
-
+        // 2. Feature verification
         const firstLevel = trackingData[0];
         expect(firstLevel).toHaveProperty('points');
-        expect(Array.isArray(firstLevel.points)).toBe(true);
-        expect(firstLevel.points.length).toBeGreaterThan(0);
+        expect(firstLevel.points.length).toBeGreaterThan(10);
+        expect(firstLevel.points[0]).toHaveProperty('x');
+        expect(firstLevel.points[0]).toHaveProperty('y');
 
-        console.log(`📍 Found ${firstLevel.points.length} points in the first level`);
-    }, 120000);
+        // 3. Progress callback verification
+        expect(progressCalls.length).toBeGreaterThan(0);
+        expect(progressCalls[progressCalls.length - 1]).toBeCloseTo(100, 1);
+        for (let i = 1; i < progressCalls.length; i++) {
+            expect(progressCalls[i]).toBeGreaterThanOrEqual(progressCalls[i - 1]);
+        }
+    });
+
+    it('should compile full target (matching + tracking) and correctly export/import .taar data', async () => {
+        const compiler = new OfflineCompiler();
+        const targetImage = createSyntheticTestImage({ width: 256, height: 256, type: 'checkerboard' });
+
+        const compiled = await compiler.compileImageTargets([
+            { width: targetImage.width, height: targetImage.height, data: targetImage.data }
+        ], () => {});
+
+        expect(compiled).toHaveLength(1);
+        expect(compiled[0]).toHaveProperty('matchingData');
+        expect(compiled[0]).toHaveProperty('trackingData');
+
+        // Verify serialization
+        const taarBuffer = compiler.exportData();
+        expect(taarBuffer).toBeInstanceOf(Uint8Array);
+        expect(taarBuffer.byteLength).toBeGreaterThan(100);
+
+        // Verify deserialization
+        const imported = compiler.importData(taarBuffer);
+        expect(imported).toHaveProperty('dataList');
+        expect(imported.dataList).toHaveLength(1);
+        expect(imported.dataList[0].targetImage.width).toBe(256);
+        expect(imported.dataList[0].targetImage.height).toBe(256);
+    });
+
+    it('should throw an informative error when given invalid image structures', async () => {
+        const compiler = new OfflineCompiler();
+
+        // Null / undefined image
+        await expect(compiler.compileImageTargets([null], () => {}))
+            .rejects.toThrow(/Imagen inválida/);
+
+        // Missing dimensions
+        await expect(compiler.compileImageTargets([{ data: new Uint8Array(100) }], () => {}))
+            .rejects.toThrow(/Imagen inválida/);
+
+        // Mismatched data buffer size
+        await expect(compiler.compileImageTargets([{ width: 100, height: 100, data: new Uint8Array(50) }], () => {}))
+            .rejects.toThrow(/Formato de datos de imagen no soportado/);
+    });
+
+    it('should accept both RGBA (4 bytes/px) and Grayscale (1 byte/px) buffers seamlessly', async () => {
+        const compiler = new OfflineCompiler();
+        const target = createSyntheticTestImage({ width: 128, height: 128, type: 'geometric' });
+
+        // Compile with Grayscale buffer (1 byte/px)
+        const resGray = await compiler.compileImageTargets([
+            { width: target.width, height: target.height, data: target.grayscaleData }
+        ], () => {});
+        expect(resGray).toHaveLength(1);
+
+        // Compile with RGBA buffer (4 bytes/px)
+        const resRgba = await compiler.compileImageTargets([
+            { width: target.width, height: target.height, data: target.data }
+        ], () => {});
+        expect(resRgba).toHaveLength(1);
+    });
 });

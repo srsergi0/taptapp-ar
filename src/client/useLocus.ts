@@ -31,13 +31,17 @@ export function useLocus(targets: LocusTarget[], config: LocusConfig = {}) {
         isRunningRef.current = false;
         if (requestRef.current) {
             cancelAnimationFrame(requestRef.current);
+            requestRef.current = undefined;
         }
         if (videoRef.current?.srcObject) {
             const stream = videoRef.current.srcObject as MediaStream;
             stream.getTracks().forEach(track => track.stop());
             videoRef.current.srcObject = null;
         }
-        controllerRef.current = null;
+        if (controllerRef.current) {
+            controllerRef.current.dispose();
+            controllerRef.current = null;
+        }
         setState('idle');
         setDetections([]);
     }, []);

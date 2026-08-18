@@ -8,20 +8,23 @@ import { DetectorLite } from "../core/detector/detector-lite.js";
 import * as protocol from "../core/protocol.js";
 import { AR_CONFIG } from "../core/constants.js";
 
-let ControllerWorker: any;
+import { WORKER_CODE } from "./worker-blob.js";
 
-// Conditional import for worker to avoid crash in non-vite environments
-const getControllerWorker = async () => {
-    if (typeof Worker === 'undefined') return null;
-    try {
-        // @ts-ignore
-        const workerModule = await import("./controller.worker.js?worker&inline");
-        return workerModule.default;
-    } catch (e) {
+function createDefaultWorker(): Worker | null {
+    if (typeof window === 'undefined' || typeof Worker === 'undefined' || typeof Blob === 'undefined' || typeof URL === 'undefined') {
         return null;
     }
-};
-ControllerWorker = await getControllerWorker();
+    if (!WORKER_CODE) return null;
+    try {
+        const blob = new Blob([WORKER_CODE], { type: 'application/javascript' });
+        const url = URL.createObjectURL(blob);
+        const worker = new Worker(url);
+        URL.revokeObjectURL(url);
+        return worker;
+    } catch {
+        return null;
+    }
+}
 
 const DEFAULT_FILTER_CUTOFF = AR_CONFIG.ONE_EURO_FILTER_CUTOFF;
 const DEFAULT_FILTER_BETA = AR_CONFIG.ONE_EURO_FILTER_BETA;
@@ -153,8 +156,8 @@ class Controller {
 
     _ensureWorker() {
         if (this.worker) return;
-        if (ControllerWorker && typeof Worker !== 'undefined') {
-            this.worker = new ControllerWorker();
+        this.worker = createDefaultWorker();
+        if (this.worker) {
             this._setupWorkerListener();
         }
     }
@@ -188,13 +191,23 @@ class Controller {
                 data[2] === MAGIC[2] &&
                 data[3] === MAGIC[3]
             ) {
-                // Descomprimir de forma asíncrona usando DecompressionStream nativo
-                const ds = new DecompressionStream('deflate');
-                const writer = ds.writable.getWriter();
-                writer.write(data.subarray(MAGIC.length));
-                writer.close();
-                const decompressedBuffer = await new Response(ds.readable).arrayBuffer();
-                data = new Uint8Array(decompressedBuffer);
+                // Try native DecompressionStream, fall back to fflate
+                try {
+                    if (typeof DecompressionStream !== 'undefined' && typeof Response !== 'undefined') {
+                        const ds = new DecompressionStream('deflate');
+                        const writer = ds.writable.getWriter();
+                        writer.write(data.subarray(MAGIC.length));
+                        writer.close();
+                        const decompressedBuffer = await new Response(ds.readable).arrayBuffer();
+                        data = new Uint8Array(decompressedBuffer);
+                    } else {
+                        const { unzlibSync } = await import('fflate');
+                        data = unzlibSync(data.subarray(MAGIC.length));
+                    }
+                } catch {
+                    const { unzlibSync } = await import('fflate');
+                    data = unzlibSync(data.subarray(MAGIC.length));
+                }
             }
 
             const alignedBuffer = new Uint8Array(

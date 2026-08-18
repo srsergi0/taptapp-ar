@@ -1,119 +1,74 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { Controller } from '../src/runtime/controller.js';
 import { OfflineCompiler } from '../src/compiler/offline-compiler.js';
-import { Matcher } from '../src/core/matching/matcher.js';
-import { Estimator } from '../src/core/estimation/estimator.js';
-import { DetectorLite } from '../src/core/detector/detector-lite.js';
-import { Jimp } from 'jimp';
-import { fileURLToPath } from 'url';
-import path from 'path';
+import { loadTestAsset } from './helpers/test-utils.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Mock Worker for Node.js environment
-class MockWorker {
-    constructor() {
-        this.onmessage = null;
-        this.matcher = null;
-        this.estimator = null;
-        this.matchingDataList = null;
-    }
-
-    postMessage(msg) {
-        if (msg.type === 'setup') {
-            this.matchingDataList = msg.matchingDataList;
-            this.matcher = new Matcher(msg.inputWidth, msg.inputHeight);
-            this.estimator = new Estimator(msg.projectionTransform);
-        }
-        if (msg.type === 'match') {
-            const interestedTargetIndexes = msg.targetIndexes;
-            let matchedTargetIndex = -1;
-            let matchedModelViewTransform = null;
-            let matchedDebugExtra = null;
-
-            for (let i = 0; i < interestedTargetIndexes.length; i++) {
-                const idx = interestedTargetIndexes[i];
-                if (this.matchingDataList?.[idx]) {
-                    const { keyframeIndex, screenCoords, worldCoords, debugExtra } = this.matcher.matchDetection(
-                        this.matchingDataList[idx],
-                        msg.featurePoints
-                    );
-
-                    if (keyframeIndex !== -1) {
-                        const modelViewTransform = this.estimator.estimate({ screenCoords, worldCoords });
-                        if (modelViewTransform) {
-                            matchedTargetIndex = idx;
-                            matchedModelViewTransform = modelViewTransform;
-                            matchedDebugExtra = debugExtra;
-                            break;
-                        }
-                    }
-                }
-            }
-            if (this.onmessage) {
-                this.onmessage({
-                    data: {
-                        type: 'matchDone',
-                        targetIndex: matchedTargetIndex,
-                        modelViewTransform: matchedModelViewTransform,
-                        debugExtra: matchedDebugExtra
-                    }
-                });
-            }
-        }
-    }
-}
-
-describe('AR Viewer (Controller)', () => {
-    let controller;
-    let mockWorker;
-    let testImage;
-    let taarData;
-    let imgWidth, imgHeight;
-
-    beforeEach(async () => {
-        const testFile = path.join(__dirname, 'assets', 'test-image.png');
-        const img = await Jimp.read(testFile);
-        imgWidth = img.bitmap.width;
-        imgHeight = img.bitmap.height;
-
-        testImage = new Uint8Array(imgWidth * imgHeight);
-        for (let i = 0; i < imgWidth * imgHeight; i++) {
-            const r = img.bitmap.data[i * 4];
-            const g = img.bitmap.data[i * 4 + 1];
-            const b = img.bitmap.data[i * 4 + 2];
-            testImage[i] = (r + g + b) / 3;
-        }
-
-        const compiler = new OfflineCompiler();
-        const targetImages = [{
-            width: imgWidth,
-            height: imgHeight,
-            data: img.bitmap.data
-        }];
-
-        await compiler.compileImageTargets(targetImages, (p) => { });
-        const buffer = compiler.exportData();
-        taarData = buffer;
-
-        mockWorker = new MockWorker();
-        controller = new Controller({
-            inputWidth: imgWidth,
-            inputHeight: imgHeight,
-            worker: mockWorker
+describe('Controller Lifecycle & Features', () => {
+    it('should initialize with valid projection matrix and aspect ratio', () => {
+        const controller = new Controller({
+            inputWidth: 640,
+            inputHeight: 480
         });
 
-        await controller.addImageTargetsFromBuffer(taarData);
-    }, 30000);
+        const proj = controller.getProjectionMatrix();
+        expect(Array.isArray(proj)).toBe(true);
+        expect(proj).toHaveLength(16);
+        expect(proj[0]).toBeGreaterThan(0);
+        expect(proj[5]).toBeGreaterThan(0);
+        expect(proj[15]).toBe(0);
 
-    it('should match a FULL target image (no crop)', async () => {
-        const detector = new DetectorLite(imgWidth, imgHeight);
-        const { featurePoints } = detector.detect(testImage);
+        controller.dispose();
+    });
+
+    it('should process targets, run dummy warmups, and match full input', async () => {
+        const testImage = await loadTestAsset('test-image.png');
+
+        const compiler = new OfflineCompiler();
+        await compiler.compileImageTargets([
+            { width: testImage.width, height: testImage.height, data: testImage.data }
+        ], () => {});
+        const taarBuffer = compiler.exportData();
+
+        const controller = new Controller({
+            inputWidth: testImage.width,
+            inputHeight: testImage.height
+        });
+
+        await controller.addImageTargetsFromBuffer(taarBuffer);
+
+        // Dummy run
+        expect(() => controller.dummyRun(testImage.grayscaleData)).not.toThrow();
+
+        // Detect & Match
+        const { featurePoints } = await controller.detect(testImage.grayscaleData);
+        expect(featurePoints.length).toBeGreaterThan(50);
 
         const { targetIndex, modelViewTransform } = await controller.match(featurePoints, 0);
-
         expect(targetIndex).toBe(0);
         expect(modelViewTransform).toBeDefined();
+
+        // Matrix calculation
+        const worldMatrix = controller.getWorldMatrix(modelViewTransform, 0);
+        expect(worldMatrix).toHaveLength(16);
+        expect(worldMatrix[15]).toBe(1);
+
+        controller.dispose();
+    });
+
+    it('should apply rotation matrix adjustment for portrait orientations', () => {
+        const controller = new Controller({ inputWidth: 640, inputHeight: 480 });
+        const identity16 = [
+            1, 0, 0, 0,
+            0, 1, 0, 0,
+            0, 0, 1, 0,
+            0, 0, 0, 1
+        ];
+
+        const rotated = controller.getRotatedZ90Matrix(identity16);
+        expect(rotated).toHaveLength(16);
+        expect(rotated[0]).toBe(-0);
+        expect(rotated[1]).toBe(1);
+
+        controller.dispose();
     });
 });

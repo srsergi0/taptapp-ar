@@ -1,18 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { writeFileSync, readdirSync, mkdirSync } from 'fs';
 import { Jimp } from 'jimp';
-import { join, dirname } from 'path';
+import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { ImageEmbedder } from '../../src/core/embeddings/image-embedding.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const inputDir = join(__dirname, '../assets/stock-extra');
-const outputPath = join(__dirname, 'visualization/similarity_data.json');
 
-async function loadAndProcessImage(filePath) {
-    let image = await Jimp.read(filePath);
-    image.resize({ w: 512, h: 512 });
-
+function jimpToGrayscale(image) {
     const width = image.bitmap.width;
     const height = image.bitmap.height;
     const grayscale = new Float32Array(width * height);
@@ -28,65 +22,35 @@ async function loadAndProcessImage(filePath) {
     return { data: grayscale, width, height };
 }
 
-describe('MEGA Data Generation', () => {
-    it('generates the 100x100 similarity matrix', async () => {
-        console.log('--- Generating MEGA Similarity Matrix (100x100) ---');
+describe('Image Embeddings Matrix Invariants', () => {
+    it('should satisfy identity similarity and bounded noise floor across variations', async () => {
         const embedder = new ImageEmbedder('standard');
 
-        const files = readdirSync(inputDir).filter(f => f.endsWith('.jpg')).sort();
-        const embeddings = [];
-        const labels = [];
+        const baseJimp = await Jimp.read(resolve(__dirname, '../assets/test-image.png'));
+        baseJimp.resize({ w: 512, h: 512 });
 
-        console.log(`Phase 1: Generating embeddings for ${files.length} images...`);
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            const filePath = join(inputDir, file);
-            try {
-                const img = await loadAndProcessImage(filePath);
-                const emb = embedder.embed(img.data, img.width, img.height);
-                embeddings.push(emb);
-                labels.push(file);
-                if ((i + 1) % 20 === 0) console.log(`[${i + 1}/100] Embeddings listos...`);
-            } catch (err) {
-                console.error(`Error en ${file}:`, err.message);
-            }
+        const variations = [
+            baseJimp.clone(),
+            baseJimp.clone().brightness(0.2),
+            baseJimp.clone().contrast(0.2),
+            baseJimp.clone().blur(1)
+        ];
+
+        const embeddings = variations.map(img => {
+            const gray = jimpToGrayscale(img);
+            return embedder.embed(gray.data, gray.width, gray.height);
+        });
+
+        // Identity self-similarity
+        for (let i = 0; i < embeddings.length; i++) {
+            const simSelf = embedder.compare(embeddings[i], embeddings[i]);
+            expect(simSelf).toBeCloseTo(1.0, 2);
         }
 
-        expect(embeddings.length).toBeGreaterThan(0);
-        console.log('Phase 2: Computing 10.000 comparisons...');
-        const n = embeddings.length;
-        const matrix = Array.from({ length: n }, () => new Array(n));
-        let totalNoise = 0;
-        let comparisons = 0;
-
-        for (let i = 0; i < n; i++) {
-            for (let j = 0; j < n; j++) {
-                const sim = embedder.compare(embeddings[i], embeddings[j]);
-                matrix[i][j] = sim;
-
-                if (i !== j) {
-                    totalNoise += sim;
-                    comparisons++;
-                }
-            }
+        // Intra-image variations must maintain significant similarity (> 0.35)
+        for (let i = 1; i < embeddings.length; i++) {
+            const sim = embedder.compare(embeddings[0], embeddings[i]);
+            expect(sim).toBeGreaterThan(0.35);
         }
-
-        const avgNoise = (totalNoise / comparisons * 100).toFixed(2);
-        console.log(`✓ Average Noise Floor: ${avgNoise}%`);
-
-        const data = {
-            mode: 'standard-mega (vitest)',
-            bits: 256,
-            labels,
-            matrix,
-            stats: {
-                avgNoise,
-                collisions: 0
-            }
-        };
-
-        mkdirSync(dirname(outputPath), { recursive: true });
-        writeFileSync(outputPath, JSON.stringify(data, null, 2));
-        console.log(`✓ Data saved to ${outputPath}`);
-    }, 60000); // 60s timeout for 100 images
+    });
 });

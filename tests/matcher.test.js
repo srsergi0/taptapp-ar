@@ -2,50 +2,48 @@ import { describe, it, expect } from 'vitest';
 import { Matcher } from '../src/core/matching/matcher.js';
 import { OfflineCompiler } from '../src/compiler/offline-compiler.js';
 import { DetectorLite } from '../src/core/detector/detector-lite.js';
-import { Jimp } from 'jimp';
-import { fileURLToPath } from 'url';
-import path from 'path';
+import { createSyntheticTestImage } from './helpers/test-utils.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-describe('Matcher with Columnar Data', () => {
-    it('should match features using Matcher class', async () => {
-
-        const testFile = path.join(__dirname, 'assets', 'test-image.png');
-        const img = await Jimp.read(testFile);
-        const imgWidth = img.bitmap.width;
-        const imgHeight = img.bitmap.height;
+describe('Matcher Unit Tests', () => {
+    it('should match features with high precision on identical target', async () => {
+        const testImage = createSyntheticTestImage({ width: 256, height: 256, type: 'geometric', seed: 123 });
 
         const compiler = new OfflineCompiler();
-        const targetImages = [{
-            width: imgWidth,
-            height: imgHeight,
-            data: img.bitmap.data
-        }];
-        await compiler.compileImageTargets(targetImages, () => { });
+        await compiler.compileImageTargets([
+            { width: testImage.width, height: testImage.height, data: testImage.data }
+        ], () => {});
+
         const taarBuffer = compiler.exportData();
-        const { dataList: importedData } = compiler.importData(taarBuffer);
-        const matchingData = importedData[0].matchingData;
+        const { dataList } = compiler.importData(taarBuffer);
+        const matchingData = dataList[0].matchingData;
 
-        const greyData = new Uint8Array(imgWidth * imgHeight);
-        for (let i = 0; i < imgWidth * imgHeight; i++) {
-            const r = img.bitmap.data[i * 4];
-            const g = img.bitmap.data[i * 4 + 1];
-            const b = img.bitmap.data[i * 4 + 2];
-            greyData[i] = (r + g + b) / 3;
-        }
-        const detector = new DetectorLite(imgWidth, imgHeight, { useLSH: true });
-        const { featurePoints } = detector.detect(greyData);
+        const detector = new DetectorLite(testImage.width, testImage.height, { useLSH: true });
+        const { featurePoints } = detector.detect(testImage.grayscaleData);
 
-        const matcher = new Matcher(imgWidth, imgHeight, true);
-        const { keyframeIndex, screenCoords } = matcher.matchDetection(matchingData, featurePoints);
-
-        console.log("Matched keyframe:", keyframeIndex);
-        console.log("Inliers:", screenCoords?.length);
+        const matcher = new Matcher(testImage.width, testImage.height, true);
+        const { keyframeIndex, screenCoords, worldCoords } = matcher.matchDetection(matchingData, featurePoints);
 
         expect(keyframeIndex).toBeGreaterThanOrEqual(0);
-        expect(screenCoords.length).toBeGreaterThanOrEqual(6);
-    }, 30000);
+        expect(Array.isArray(screenCoords)).toBe(true);
+        expect(Array.isArray(worldCoords)).toBe(true);
+        expect(screenCoords.length).toBeGreaterThanOrEqual(10);
+        expect(screenCoords.length).toBe(worldCoords.length);
+    });
 
+    it('should handle empty or malformed feature point arrays gracefully', () => {
+        const matcher = new Matcher(256, 256, false);
+        const mockMatchingData = {
+            maximaPointsList: [],
+            minimaPointsList: [],
+            numOctaves: 1
+        };
+
+        // Empty feature array
+        const resEmpty = matcher.matchDetection(mockMatchingData, []);
+        expect(resEmpty.keyframeIndex).toBe(-1);
+
+        // Null / undefined inputs
+        const resNull = matcher.matchDetection(null, []);
+        expect(resNull.keyframeIndex).toBe(-1);
+    });
 });

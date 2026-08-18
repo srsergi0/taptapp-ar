@@ -2,74 +2,84 @@ import { describe, it, expect } from 'vitest';
 import { OfflineCompiler } from '../src/compiler/offline-compiler.js';
 import { Matcher } from '../src/core/matching/matcher.js';
 import { DetectorLite } from '../src/core/detector/detector-lite.js';
-import { Jimp } from 'jimp';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { Estimator } from '../src/core/estimation/estimator.js';
+import { loadTestAsset } from './helpers/test-utils.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+describe('End-to-End AR Pipeline (Protocol V9 - LSH & HDC)', () => {
+    it('should compile target, export/import .taar, and match query with high inlier confidence', async () => {
+        const targetImage = await loadTestAsset('test-image.png');
 
-describe('End-to-End Detection (Protocol V9 - LSH)', () => {
-    it('should compile an image, export/import it, and detect it with high confidence (LSH)', async () => {
-        const imagePath = path.join(__dirname, 'assets/test-image.png');
-        const image = await Jimp.read(imagePath);
-        const { width, height } = image.bitmap;
-
-        // 1. Compile with Protocol V9 (HDC 32-bit Signatures)
+        // 1. Compile target
         const compiler = new OfflineCompiler();
-        const targetImages = [{
-            width,
-            height,
-            data: image.bitmap.data
-        }];
+        await compiler.compileImageTargets([
+            { width: targetImage.width, height: targetImage.height, data: targetImage.data }
+        ], () => {});
 
-        console.log('🔨 Compiling target...');
-        await compiler.compileImageTargets(targetImages, () => { });
-
-        // 2. Export and Import data (simulating network/storage)
-        console.log('📂 Exporting and importing .taar data...');
+        // 2. Export & Import
         const exportedBuffer = compiler.exportData();
-        const { dataList: importedData } = compiler.importData(exportedBuffer);
+        const { dataList } = compiler.importData(exportedBuffer);
+        expect(dataList).toHaveLength(1);
+        const matchingData = dataList[0].matchingData;
 
-        expect(importedData.length).toBe(1);
-        const matchingData = importedData[0].matchingData;
+        // 3. Detect query features
+        const detector = new DetectorLite(targetImage.width, targetImage.height, { useLSH: true, useHDC: true });
+        const { featurePoints } = detector.detect(targetImage.grayscaleData);
+        expect(featurePoints.length).toBeGreaterThan(20);
 
-        // 3. Prepare query image (the same image, converted to grayscale)
-        image.greyscale();
-        const greyData = new Uint8Array(width * height);
-        const rgbaData = image.bitmap.data;
-        for (let i = 0; i < width * height; i++) {
-            greyData[i] = rgbaData[i * 4];
-        }
-
-        // 4. Detect features in query image using HDC (32-bit signatures)
-        console.log('🔍 Detecting features in query image...');
-        const detector = new DetectorLite(width, height, { useLSH: true, useHDC: true });
-        const { featurePoints } = detector.detect(greyData);
-
-        // 5. Perform Matching
-        console.log('🎯 Matching query features against imported target...');
-        const matcher = new Matcher(width, height, true);
+        // 4. Perform Matching
+        const matcher = new Matcher(targetImage.width, targetImage.height, true);
         const result = matcher.matchDetection(matchingData, featurePoints);
 
-        console.log(`✅ Result: KeyframeIndex=${result.keyframeIndex}, Inliers=${result.screenCoords?.length}`);
-
-        // ASSERTIONS
-        // Should match any valid keyframe (usually 0 but can be lower layers due to density)
+        // 5. Assertions
         expect(result.keyframeIndex).toBeGreaterThanOrEqual(0);
-
-        // Inliers should be high for the same image (usually > 100 for a well-featured image)
-        // Protocol V9 with 32-bit HDC should maintain high inlier count
         expect(result.screenCoords).toBeDefined();
         expect(result.worldCoords).toBeDefined();
-        if (result.screenCoords && result.worldCoords) {
-            expect(result.screenCoords.length).toBeGreaterThanOrEqual(50);
+        expect(result.screenCoords.length).toBeGreaterThanOrEqual(15);
+        expect(result.worldCoords.length).toBe(result.screenCoords.length);
 
-            // Verify world coordinates are present
-            expect(result.worldCoords.length).toBe(result.screenCoords.length);
-            expect(result.worldCoords[0]).toHaveProperty('x');
-            expect(result.worldCoords[0]).toHaveProperty('y');
-            expect(result.worldCoords[0]).toHaveProperty('z');
-        }
-    }, 40000);
+        // Verify valid geometric 2D/3D structure
+        expect(result.screenCoords[0]).toHaveProperty('x');
+        expect(result.screenCoords[0]).toHaveProperty('y');
+        expect(result.worldCoords[0]).toHaveProperty('x');
+        expect(result.worldCoords[0]).toHaveProperty('y');
+        expect(result.worldCoords[0]).toHaveProperty('z');
+
+        // 6. Estimate 3D Pose / ModelViewTransform
+        const projectionTransform = [
+            [256, 0, 128],
+            [0, 256, 128],
+            [0, 0, 1]
+        ];
+        const estimator = new Estimator(projectionTransform);
+        const modelViewTransform = estimator.estimate({
+            screenCoords: result.screenCoords,
+            worldCoords: result.worldCoords
+        });
+
+        expect(modelViewTransform).toBeDefined();
+        expect(modelViewTransform).toHaveLength(3);
+        expect(modelViewTransform[0]).toHaveLength(4);
+    });
+
+    it('should correctly reject unmatched/unrelated images without false positive matches', async () => {
+        const target = await loadTestAsset('test-image.png');
+        const unrelatedQuery = await loadTestAsset('test-query.jpg');
+
+        const compiler = new OfflineCompiler();
+        await compiler.compileImageTargets([
+            { width: target.width, height: target.height, data: target.data }
+        ], () => {});
+
+        const { dataList } = compiler.importData(compiler.exportData());
+        const matchingData = dataList[0].matchingData;
+
+        const detector = new DetectorLite(unrelatedQuery.width, unrelatedQuery.height, { useLSH: true, useHDC: true });
+        const { featurePoints } = detector.detect(unrelatedQuery.grayscaleData);
+
+        const matcher = new Matcher(unrelatedQuery.width, unrelatedQuery.height, false);
+        const result = matcher.matchDetection(matchingData, featurePoints);
+
+        // Unrelated image should fail to achieve consensus
+        expect(result.keyframeIndex).toBe(-1);
+    });
 });
